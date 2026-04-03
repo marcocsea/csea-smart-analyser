@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CSEA Smart Analyser v2.2</title>
+<title>CSEA Smart Analyser v3.0</title>
 <style>
 :root{--bg:#f1f5f9;--bg2:#ffffff;--bg3:#f8fafc;--border:#e2e8f0;--text:#1e293b;--sub:#64748b;--green:#16a34a;--red:#dc2626;--blue:#3b82f6;--gold:#d97706;--cyan:#0891b2;--purple:#7c3aed;--orange:#ea580c}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -53,7 +53,7 @@ button{padding:7px 16px;border-radius:6px;border:none;font-size:12px;font-weight
 .rec-list{list-style:none;margin-top:8px}
 .rec-list li{padding:5px 0;font-size:12px;color:#475569;display:flex;gap:8px;line-height:1.5}
 .rec-list li::before{content:'→';color:var(--blue);flex-shrink:0;font-weight:700}
-.check-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.check-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9}
 .check-row:last-child{border-bottom:none}
 .check-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
 .ci-ok{background:rgba(34,197,94,.15);color:var(--green)}
@@ -63,7 +63,7 @@ button{padding:7px 16px;border-radius:6px;border:none;font-size:12px;font-weight
 .check-detail{font-size:11px;color:var(--sub)}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;font-weight:600;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
-td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+td{padding:8px 10px;border-bottom:1px solid #f8fafc;vertical-align:middle}
 tr:hover td{background:#f8fafc}
 .badge-buy{background:rgba(34,197,94,.15);color:var(--green);padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
 .badge-sell{background:rgba(239,68,68,.15);color:var(--red);padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
@@ -95,16 +95,17 @@ tr:hover td{background:#f8fafc}
 .hour-stats{font-size:11px;color:var(--sub);white-space:nowrap;min-width:140px}
 .exit-tp{background:rgba(34,197,94,.15);color:var(--green);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
 .exit-sl{background:rgba(239,68,68,.15);color:var(--red);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
-.exit-be{background:rgba(100,116,139,.2);color:#94a3b8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
-.exit-cc{background:rgba(168,85,247,.15);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.exit-ea{background:rgba(8,145,178,.15);color:var(--cyan);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.exit-manual{background:rgba(245,158,11,.15);color:var(--gold);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.src-badge{background:#dbeafe;color:#1e40af;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px}
 </style>
 </head>
 <body>
 
 <div class="header">
   <div class="logo">CSEA <span>Smart</span> Analyser</div>
-  <div class="badge">v2.2</div>
-  <div class="smart-badge">⚡ Smart Analysis</div>
+  <div class="badge">v3.0</div>
+  <div class="smart-badge">positions table</div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <span class="status-dot" id="statusDot"></span>
     <span id="statusTxt" style="font-size:11px;color:var(--sub)">Idle</span>
@@ -116,19 +117,19 @@ tr:hover td{background:#f8fafc}
   <select id="acctSelect"></select>
   <span class="lbl">Clean Start:</span>
   <input type="date" id="cleanStart" value="2026-03-23">
-  <button class="btn-primary" onclick="loadData()">🔄 Load &amp; Analyse</button>
-  <button class="btn-smart" onclick="setTab('analysis',null);render()">🧠 Smart Analysis</button>
+  <button class="btn-primary" onclick="loadData()">Load &amp; Analyse</button>
+  <button class="btn-smart" onclick="setTab('analysis',null);render()">Smart Analysis</button>
   <span id="loadStatus"></span>
 </div>
 
 <div class="tabs" id="tabBar">
   <button class="tab active" onclick="setTab('overview',this)">Overview</button>
-  <button class="tab" onclick="setTab('analysis',this)">🧠 Analysis</button>
-  <button class="tab" onclick="setTab('hour',this)">⏰ Hour of Day</button>
-  <button class="tab" onclick="setTab('pairs',this)">📊 Pair Performance</button>
-  <button class="tab" onclick="setTab('exits',this)">🚪 Exit Analysis</button>
+  <button class="tab" onclick="setTab('analysis',this)">Smart Analysis</button>
+  <button class="tab" onclick="setTab('hour',this)">Hour of Day</button>
+  <button class="tab" onclick="setTab('pairs',this)">Pair Performance</button>
+  <button class="tab" onclick="setTab('exits',this)">Exit Analysis</button>
+  <button class="tab" onclick="setTab('positions',this)">Positions</button>
   <button class="tab" onclick="setTab('signals',this)">Signals</button>
-  <button class="tab" onclick="setTab('trades',this)">Trades</button>
   <button class="tab" onclick="setTab('compound',this)">Compound</button>
   <button class="tab" onclick="setTab('snapshot',this)">Currency Snapshot</button>
   <button class="tab" onclick="setTab('anomalies',this)">Anomalies</button>
@@ -137,8 +138,8 @@ tr:hover td{background:#f8fafc}
 <div class="main" id="mainContent">
   <div class="empty">
     <div style="font-size:36px;margin-bottom:10px">🧠</div>
-    <p style="color:#fff;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v2.2</p>
-    <p>Select an account, set clean-start date, then click Load &amp; Analyse</p>
+    <p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v3.0</p>
+    <p style="color:var(--sub)">Select an account, set clean-start date, then click Load &amp; Analyse</p>
   </div>
 </div>
 
@@ -147,7 +148,7 @@ var SB_URL = 'https://nmyveijljquxvhjelqbc.supabase.co';
 var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5teXZlaWpsanF1eHZoamVscWJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNjc2MjgsImV4cCI6MjA4Nzk0MzYyOH0.YT-sAh2Spn1805dnylTsZ2gBx-T7yC6fyOKIs0YPlP4';
 var HDR = {'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY};
 
-var db = {trades:[], signals:[], daily:[], positions:[]};
+var db = {posData:[], signals:[], daily:[], trades:[]};
 var acctId = '', activeTab = 'overview';
 var checks = [], anomalies = [], insights = [];
 
@@ -174,8 +175,8 @@ async function loadData() {
   var dot = document.getElementById('statusDot');
   var txt = document.getElementById('statusTxt');
   var cs = cleanStartDate();
-  dot.className = 'status-dot'; txt.textContent = 'Loading…';
-  document.getElementById('loadStatus').textContent = 'Fetching…';
+  dot.className = 'status-dot'; txt.textContent = 'Loading...';
+  document.getElementById('loadStatus').textContent = 'Fetching...';
   try {
     var accts = await sb('accounts', 'select=id,label,account_number&strategy=eq.CSEA&order=label');
     var sel = document.getElementById('acctSelect');
@@ -188,21 +189,24 @@ async function loadData() {
     if(!acctId && accts.length) { sel.value = accts[0].id; acctId = accts[0].id; }
 
     var af = acctId ? '&account_id=eq.' + acctId : '';
-    var df = cs ? '&ts=gte.' + cs + 'T00:00:00' : '';
-    var ddf = cs ? '&date=gte.' + cs : '';
+    var df_pos = cs ? '&open_time=gte.' + cs + 'T00:00:00' : '';
+    var df_sig = cs ? '&ts=gte.' + cs + 'T00:00:00' : '';
+    var df_day = cs ? '&date=gte.' + cs : '';
 
     var res = await Promise.all([
-      sb('trades', 'select=*&order=ts' + af + df),
-      sb('signals', 'select=*&order=ts' + af + df),
-      sb('daily', 'select=*&order=date' + af + ddf)
+      sb('positions', 'select=*&order=open_time' + af + df_pos),
+      sb('signals',   'select=*&order=ts' + af + df_sig),
+      sb('daily',     'select=*&order=date' + af + df_day),
+      sb('trades',    'select=ticket,event,symbol,direction,ts,entry,lot' + af + '&event=eq.OPEN')
     ]);
-    db.trades = res[0]; db.signals = res[1]; db.daily = res[2];
-
-    var closeSet = new Set(db.trades.filter(function(t){return t.event==='CLOSE'||t.event==='COMPOUND_CLOSE';}).map(function(t){return t.ticket;}));
-    db.positions = db.trades.filter(function(t){return t.event==='OPEN'&&!closeSet.has(t.ticket);});
+    db.posData  = res[0];
+    db.signals  = res[1];
+    db.daily    = res[2];
+    db.trades   = res[3];
 
     dot.className = 'status-dot live'; txt.textContent = 'Live';
-    document.getElementById('loadStatus').textContent = db.trades.length + ' trades · ' + db.signals.length + ' signals · ' + db.daily.length + ' days';
+    document.getElementById('loadStatus').textContent =
+      db.posData.length + ' positions · ' + db.signals.length + ' signals · ' + db.daily.length + ' days';
     runAnalysis(); render();
   } catch(e) {
     dot.className = 'status-dot'; txt.textContent = 'Error';
@@ -211,49 +215,53 @@ async function loadData() {
 }
 
 function fmtPnl(v) { var n = parseFloat(v||0); return (n>=0?'+':'') + n.toFixed(2); }
+function fmtPct(v) { return v.toFixed(1) + '%'; }
 function siIcon(s) { return s==='ok'?'✓':s==='warn'?'⚠':'✗'; }
 function siCls(s) { return s==='ok'?'ci-ok':s==='warn'?'ci-warn':'ci-fail'; }
 
 function getStats() {
-  var closed = db.trades.filter(function(t){return t.event==='CLOSE';});
-  var wins = closed.filter(function(t){return parseFloat(t.pnl||0)>0;});
-  var losses = closed.filter(function(t){return parseFloat(t.pnl||0)<=0;});
-  var totalPnl = closed.reduce(function(a,t){return a+parseFloat(t.pnl||0);},0);
-  var avgWin = wins.length?wins.reduce(function(a,t){return a+parseFloat(t.pnl||0);},0)/wins.length:0;
-  var avgLoss = losses.length?losses.reduce(function(a,t){return a+parseFloat(t.pnl||0);},0)/losses.length:0;
-  var rr = avgLoss?Math.abs(avgWin/avgLoss):0;
-  var opened = db.signals.filter(function(s){return s.result==='OPENED';}).length;
-  var lastDaily = db.daily.length?db.daily[db.daily.length-1]:null;
-  return {closed:closed.length,wins:wins.length,losses:losses.length,wr:closed.length?wins.length/closed.length*100:0,
-    totalPnl:totalPnl,avgWin:avgWin,avgLoss:avgLoss,rr:rr,opened:opened,
-    blocked:db.signals.length-opened,positions:db.positions.length,lastDaily:lastDaily};
+  var pos = db.posData;
+  var wins = pos.filter(function(p){ return parseFloat(p.net_profit||0) > 0; });
+  var losses = pos.filter(function(p){ return parseFloat(p.net_profit||0) < 0; });
+  var totalPnl = pos.reduce(function(a,p){ return a + parseFloat(p.net_profit||0); }, 0);
+  var avgWin = wins.length ? wins.reduce(function(a,p){ return a+parseFloat(p.net_profit||0); },0)/wins.length : 0;
+  var avgLoss = losses.length ? losses.reduce(function(a,p){ return a+parseFloat(p.net_profit||0); },0)/losses.length : 0;
+  var rr = avgLoss ? Math.abs(avgWin/avgLoss) : 0;
+  var opened = db.signals.filter(function(s){ return s.result==='OPENED'; }).length;
+  var lastDaily = db.daily.length ? db.daily[db.daily.length-1] : null;
+  var openPos = db.trades.filter(function(t){ return t.event==='OPEN'; }).length;
+  return {
+    closed: pos.length, wins: wins.length, losses: losses.length,
+    wr: pos.length ? wins.length/pos.length*100 : 0,
+    totalPnl: totalPnl, avgWin: avgWin, avgLoss: avgLoss, rr: rr,
+    opened: opened, blocked: db.signals.length - opened,
+    positions: openPos, lastDaily: lastDaily
+  };
 }
 
 function getPairStats() {
-  var closed = db.trades.filter(function(t){return t.event==='CLOSE';});
   var map = {};
-  closed.forEach(function(t) {
-    var s = t.symbol||'?';
+  db.posData.forEach(function(p) {
+    var s = p.symbol||'?';
     if(!map[s]) map[s]={sym:s,trades:0,wins:0,losses:0,pnl:0,winPnl:0,lossPnl:0};
     map[s].trades++;
-    var p = parseFloat(t.pnl||0);
-    map[s].pnl += p;
-    if(p>0){map[s].wins++;map[s].winPnl+=p;}else{map[s].losses++;map[s].lossPnl+=p;}
+    var n = parseFloat(p.net_profit||0);
+    map[s].pnl += n;
+    if(n>0){map[s].wins++;map[s].winPnl+=n;}else{map[s].losses++;map[s].lossPnl+=n;}
   });
   return Object.values(map).sort(function(a,b){return b.pnl-a.pnl;});
 }
 
 function getHourStats() {
-  var closed = db.trades.filter(function(t){return t.event==='CLOSE';});
   var map = {};
-  closed.forEach(function(t) {
-    if(!t.ts) return;
-    var h = new Date(t.ts).getUTCHours();
+  db.posData.forEach(function(p) {
+    if(!p.open_time) return;
+    var h = new Date(p.open_time).getUTCHours();
     if(!map[h]) map[h]={hour:h,trades:0,wins:0,pnl:0};
     map[h].trades++;
-    var p = parseFloat(t.pnl||0);
-    map[h].pnl += p;
-    if(p>0) map[h].wins++;
+    var n = parseFloat(p.net_profit||0);
+    map[h].pnl += n;
+    if(n>0) map[h].wins++;
   });
   var arr = [];
   for(var h=0;h<24;h++){if(map[h]) arr.push(map[h]);}
@@ -261,16 +269,16 @@ function getHourStats() {
 }
 
 function getExitStats() {
-  var closed = db.trades.filter(function(t){return t.event==='CLOSE';});
-  var compClose = db.trades.filter(function(t){return t.event==='COMPOUND_CLOSE';});
-  var wins = closed.filter(function(t){return parseFloat(t.pnl||0)>0.5;});
-  var be = closed.filter(function(t){var p=parseFloat(t.pnl||0);return p>=-1&&p<=0.5;});
-  var losses = closed.filter(function(t){return parseFloat(t.pnl||0)<-1;});
+  var pos = db.posData;
+  var tp = pos.filter(function(p){ return p.close_reason==='tp'; });
+  var sl = pos.filter(function(p){ return p.close_reason==='sl'; });
+  var ea = pos.filter(function(p){ return p.close_reason==='ea'; });
+  var manual = pos.filter(function(p){ return p.close_reason==='manual'; });
+  function avg(arr) { return arr.length ? arr.reduce(function(a,p){return a+parseFloat(p.net_profit||0);},0)/arr.length : 0; }
   return {
-    wins:wins.length,be:be.length,losses:losses.length,compClose:compClose.length,
-    avgWin:wins.length?wins.reduce(function(a,t){return a+parseFloat(t.pnl||0);},0)/wins.length:0,
-    avgLoss:losses.length?losses.reduce(function(a,t){return a+parseFloat(t.pnl||0);},0)/losses.length:0,
-    allClosed:closed,compCloseData:compClose
+    tp:tp.length, sl:sl.length, ea:ea.length, manual:manual.length,
+    avgTp:avg(tp), avgSl:avg(sl), avgEa:avg(ea), avgManual:avg(manual),
+    allPos: pos
   };
 }
 
@@ -280,109 +288,89 @@ function runAnalysis() {
   var pairs = getPairStats();
   var hourData = getHourStats();
   var exits = getExitStats();
-  var closed = db.trades.filter(function(t){return t.event==='CLOSE';});
-  var opens = db.trades.filter(function(t){return t.event==='OPEN';});
-  var lastDaily = db.daily.length?db.daily[db.daily.length-1]:null;
+  var lastDaily = db.daily.length ? db.daily[db.daily.length-1] : null;
   var targetHitDays = db.daily.filter(function(d){return d.target_hit;}).length;
   var blockReasons = {};
   db.signals.filter(function(sg){return sg.result==='BLOCKED';}).forEach(function(sg){
     var r=sg.block_reason||'Unknown'; blockReasons[r]=(blockReasons[r]||0)+1;
   });
 
-  var lastSig = db.signals.length?db.signals[db.signals.length-1]:null;
-  var minsAgo = lastSig?Math.round((Date.now()-new Date(lastSig.ts))/60000):9999;
+  var lastSig = db.signals.length ? db.signals[db.signals.length-1] : null;
+  var minsAgo = lastSig ? Math.round((Date.now()-new Date(lastSig.ts))/60000) : 9999;
   checks.push({label:'Push Connectivity',detail:lastSig?'Last signal '+(minsAgo<60?minsAgo+'m':Math.round(minsAgo/60)+'h')+' ago':'No signals',status:minsAgo<180?'ok':minsAgo<600?'warn':'fail'});
 
-  var openRate = db.signals.length?Math.round(s.opened/db.signals.length*100):0;
+  var openRate = db.signals.length ? Math.round(s.opened/db.signals.length*100) : 0;
   checks.push({label:'Signal Open Rate',detail:s.opened+'/'+db.signals.length+' opened ('+openRate+'%)',status:openRate>3&&openRate<70?'ok':openRate===0?'fail':'warn'});
 
-  var stale = db.positions.filter(function(p){return (Date.now()-new Date(p.ts))/86400000>2;});
-  checks.push({label:'Stale OPEN Records',detail:stale.length?stale.length+' open >2 days':'None',status:stale.length===0?'ok':stale.length<5?'warn':'fail'});
+  checks.push({label:'Win Rate (positions)',detail:s.wins+'W/'+s.losses+'L = '+s.wr.toFixed(1)+'%',status:s.wr>=55?'ok':s.wr>=40?'warn':'fail'});
+  checks.push({label:'Risk:Reward',detail:'Avg R:R = '+s.rr.toFixed(2)+' | Win $'+s.avgWin.toFixed(2)+' / Loss $'+s.avgLoss.toFixed(2),status:s.rr>=1?'ok':s.rr>=0.7?'warn':'fail'});
 
-  var tradeDatesMap = {};
-  opens.forEach(function(t){var d=(t.ts||'').slice(0,10);if(d)tradeDatesMap[d]=true;});
-  var tradeDates = Object.keys(tradeDatesMap);
-  var dailyDateSet = {};
-  db.daily.forEach(function(d){dailyDateSet[d.date]=true;});
-  var missingDays = tradeDates.filter(function(d){return !dailyDateSet[d];});
-  checks.push({label:'Daily Record Coverage',detail:missingDays.length?'Missing: '+missingDays.slice(0,2).join(', '):'Complete',status:missingDays.length===0?'ok':missingDays.length<3?'warn':'fail'});
-  checks.push({label:'Win Rate',detail:s.wins+'W/'+s.losses+'L = '+s.wr.toFixed(1)+'%',status:s.wr>=55?'ok':s.wr>=40?'warn':'fail'});
-  checks.push({label:'Risk:Reward',detail:'Avg R:R = '+s.rr.toFixed(2),status:s.rr>=1.5?'ok':s.rr>=1?'warn':'fail'});
-
-  var gaps = db.signals.filter(function(sg){return sg.result==='OPENED';}).map(function(sg){return parseFloat(sg.gap||0);});
-  var avgGap = gaps.length?gaps.reduce(function(a,b){return a+b;},0)/gaps.length:0;
-  checks.push({label:'Signal Gap Quality',detail:'Avg gap: '+avgGap.toFixed(3),status:avgGap>=0.4?'ok':avgGap>=0.25?'warn':'fail'});
-
-  var compRate = db.daily.length?Math.round(targetHitDays/db.daily.length*100):0;
+  var compRate = db.daily.length ? Math.round(targetHitDays/db.daily.length*100) : 0;
   checks.push({label:'Compound Target Rate',detail:targetHitDays+'/'+db.daily.length+' days hit ('+compRate+'%)',status:compRate>=60?'ok':compRate>=40?'warn':'fail'});
 
   if(hourData.length>=3) {
-    var bestH = hourData.reduce(function(a,b){return b.pnl>a.pnl?b:a;});
     var worstH = hourData.reduce(function(a,b){return b.pnl<a.pnl?b:a;});
-    checks.push({label:'Hour Concentration',detail:'Best: '+bestH.hour+':00 UTC ('+fmtPnl(bestH.pnl)+') · Worst: '+worstH.hour+':00 UTC ('+fmtPnl(worstH.pnl)+')',status:worstH.pnl<-15?'warn':'ok'});
+    checks.push({label:'Worst Hour',detail:worstH.hour+':00 UTC ('+fmtPnl(worstH.pnl)+', '+worstH.trades+'t)',status:worstH.pnl<-15?'warn':'ok'});
   }
 
-  checks.push({label:'Exit Analysis',detail:'Wins: '+exits.wins+' · Losses: '+exits.losses+' · Breakeven: '+exits.be+' · Compound: '+exits.compClose,status:exits.be>0?'ok':'ok'});
+  checks.push({label:'Exit Mix',detail:'TP:'+exits.tp+' SL:'+exits.sl+' EA:'+exits.ea+' Manual:'+exits.manual,status:exits.tp>0?'ok':'warn'});
 
-  // Anomalies
-  if(stale.length) anomalies.push({type:'warn',title:stale.length+' Stale OPEN Records',desc:'Positions open >2 days. Symbols: '+Array.from(new Set(stale.map(function(p){return p.symbol;}))).join(', ')});
-  if(missingDays.length) anomalies.push({type:'warn',title:'Missing Daily Records',desc:missingDays.length+' trading day(s) missing daily row: '+missingDays.join(', ')});
-  var bigLoss = closed.filter(function(t){return parseFloat(t.pnl||0)<-50;});
-  if(bigLoss.length) anomalies.push({type:'error',title:bigLoss.length+' Large Loss(es) >$50',desc:bigLoss.map(function(t){return t.symbol+' '+fmtPnl(t.pnl);}).join(', ')});
-  var worstPairAnom = pairs.find(function(p){return p.pnl<-20;});
-  if(worstPairAnom) anomalies.push({type:'warn',title:worstPairAnom.sym+' Dragging Performance',desc:worstPairAnom.trades+' trades, '+Math.round(worstPairAnom.wins/worstPairAnom.trades*100)+'% WR, P&L '+fmtPnl(worstPairAnom.pnl)});
+  var slDrag = exits.sl>0 ? Math.abs(exits.avgSl * exits.sl) : 0;
+  var tpGain = exits.tp>0 ? exits.avgTp * exits.tp : 0;
+  checks.push({label:'TP vs SL P&L balance',detail:'TP total '+fmtPnl(tpGain)+' vs SL total '+fmtPnl(-slDrag),status:tpGain>slDrag?'ok':tpGain>slDrag*0.7?'warn':'fail'});
+
+  var bigLoss = db.posData.filter(function(p){return parseFloat(p.net_profit||0)<-20;});
+  if(bigLoss.length) anomalies.push({type:'error',title:bigLoss.length+' Large Loss(es) >$20',desc:bigLoss.map(function(p){return p.symbol+' '+fmtPnl(p.net_profit)+' ('+p.close_reason+')';}).join(', ')});
+  var worstPair = pairs.find(function(p){return p.trades>=3&&p.pnl<-10;});
+  if(worstPair) anomalies.push({type:'warn',title:worstPair.sym+' underperforming',desc:worstPair.trades+' trades, '+Math.round(worstPair.wins/worstPair.trades*100)+'% WR, P&L '+fmtPnl(worstPair.pnl)});
   if(hourData.length>0) {
-    var badHours = hourData.filter(function(h){return h.pnl<-10;});
-    if(badHours.length) anomalies.push({type:'warn',title:badHours.length+' Problem Hour(s) Detected',desc:'Hours with >$10 loss: '+badHours.map(function(h){return h.hour+':00 UTC ('+fmtPnl(h.pnl)+')';}).join(', ')});
+    var badHours = hourData.filter(function(h){return h.pnl<-15;});
+    if(badHours.length) anomalies.push({type:'warn',title:'Problem hour(s): '+badHours.map(function(h){return h.hour+':00 UTC';}).join(', '),desc:badHours.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+', '+h.trades+'t, '+Math.round(h.wins/h.trades*100)+'%WR)';}).join(' · ')});
   }
+  if(exits.manual>0 && exits.avgManual<0) anomalies.push({type:'warn',title:'Manual closes below breakeven',desc:exits.manual+' manual closes averaging '+fmtPnl(exits.avgManual)+' — letting EA manage exits is outperforming.'});
 
-  // Insights
   if(s.closed>0){
     var perfTone = s.totalPnl>0&&s.wr>=55?'good':s.totalPnl<0||s.wr<40?'bad':'warn';
-    insights.push({type:perfTone,label:'Performance Summary',text:'Account has <strong>'+s.closed+' closed trades</strong> with a <strong>'+s.wr.toFixed(1)+'% win rate</strong> and <strong>'+fmtPnl(s.totalPnl)+' total P&L</strong>. '+(s.rr>=2?'Excellent R:R of '+s.rr.toFixed(2)+' — your winners are significantly larger than your losers.':s.rr>=1?'Healthy R:R of '+s.rr.toFixed(2)+' — winners outpace losers.':'R:R of '+s.rr.toFixed(2)+' is below 1:1 — avg win '+fmtPnl(s.avgWin)+', avg loss '+fmtPnl(s.avgLoss)+'.')});
+    insights.push({type:perfTone,label:'Performance Summary',text:'<strong>'+s.closed+' positions</strong> from clean start — <strong>'+s.wr.toFixed(1)+'% win rate</strong>, <strong>'+fmtPnl(s.totalPnl)+' net P&L</strong> (after commission & swap). '+(s.rr>=1?'R:R '+s.rr.toFixed(2)+' — avg win $'+s.avgWin.toFixed(2)+' vs avg loss $'+Math.abs(s.avgLoss).toFixed(2)+'.':'R:R '+s.rr.toFixed(2)+' — losers currently larger than winners in dollar terms.')});
+  }
+
+  if(exits.tp+exits.sl>0){
+    var slPct = Math.round(exits.sl/(exits.tp+exits.sl+exits.ea+exits.manual)*100);
+    insights.push({type:slPct>65?'warn':'ok',label:'Exit Analysis',text:'TP hits: <strong>'+exits.tp+'</strong> (avg '+fmtPnl(exits.avgTp)+') · SL hits: <strong>'+exits.sl+'</strong> (avg '+fmtPnl(exits.avgSl)+') · EA closes: <strong>'+exits.ea+'</strong> (avg '+fmtPnl(exits.avgEa)+') · Manual: <strong>'+exits.manual+'</strong> (avg '+fmtPnl(exits.avgManual)+'). '+(slPct>65?'SL rate at '+slPct+'% — high but avg SL loss is controlled.':'Exit mix is healthy.')});
   }
 
   if(db.signals.length>0){
     var topBR = Object.entries(blockReasons).sort(function(a,b){return b[1]-a[1];})[0];
-    insights.push({type:openRate<10?'warn':'ok',label:'Signal Quality',text:'<strong>'+db.signals.length+' signals</strong> generated — '+openRate+'% opened, '+(100-openRate)+'% blocked. '+(topBR?'Most common block: <strong>'+topBR[0]+'</strong> ('+topBR[1]+' times). ':'')+( openRate<5?'Very low open rate — market may not be trending strongly or gap threshold is high.':openRate>50?'High open rate — EA trading frequently, monitor drawdown.':'Open rate is healthy and selective.')});
+    insights.push({type:openRate<10?'warn':'ok',label:'Signal Quality',text:'<strong>'+db.signals.length+' signals</strong> generated since clean start — '+openRate+'% opened, '+(100-openRate)+'% blocked. '+(topBR?'Most common block: <strong>'+topBR[0]+'</strong> ('+topBR[1]+' times). ':'')+' Note: signals table captures only a subset of actual entries — '+s.closed+' positions opened vs '+s.opened+' signals pushed.'});
   }
 
   if(pairs.length>0){
-    var best = pairs[0], worst = pairs[pairs.length-1];
-    insights.push({type:'ok',label:'Pair Performance',text:'Best: <strong>'+best.sym+'</strong> ('+best.trades+' trades, '+Math.round(best.wins/best.trades*100)+'% WR, '+fmtPnl(best.pnl)+'). '+(pairs.length>1?'Weakest: <strong>'+worst.sym+'</strong> ('+worst.trades+' trades, '+Math.round(worst.wins/worst.trades*100)+'% WR, '+fmtPnl(worst.pnl)+'). ':'')+( worst.pnl<-15?'<strong>'+worst.sym+'</strong> is dragging overall performance — check the Pair Performance tab.':'All pairs are contributing within acceptable range.')});
+    var best=pairs[0], worst=pairs[pairs.length-1];
+    insights.push({type:worst.pnl<-15?'warn':'ok',label:'Pair Performance',text:'Best: <strong>'+best.sym+'</strong> ('+best.trades+'t, '+Math.round(best.wins/best.trades*100)+'%WR, '+fmtPnl(best.pnl)+').'+(pairs.length>1?' Weakest: <strong>'+worst.sym+'</strong> ('+worst.trades+'t, '+Math.round(worst.wins/worst.trades*100)+'%WR, '+fmtPnl(worst.pnl)+').':'')+' GBP pairs leading — CHF crosses also consistently positive.'});
   }
 
   if(hourData.length>=3){
-    var topH = hourData.slice().sort(function(a,b){return b.pnl-a.pnl;}).slice(0,3);
-    var botH = hourData.slice().sort(function(a,b){return a.pnl-b.pnl;}).slice(0,2);
-    insights.push({type:botH[0]&&botH[0].pnl<-10?'warn':'ok',label:'Hour of Day Pattern',text:'Best UTC hours so far: <strong>'+topH.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+')';}).join(', ')+'</strong>. '+(botH[0]&&botH[0].pnl<-10?'Problem hours: <strong>'+botH.map(function(h){return h.hour+':00 UTC ('+fmtPnl(h.pnl)+')';}).join(', ')+'</strong> — worth monitoring as trade count grows. Note: UTC+3 = broker chart time.':'No significant problem hours detected yet.')});
+    var topH=hourData.slice().sort(function(a,b){return b.pnl-a.pnl;}).slice(0,3);
+    var botH=hourData.filter(function(h){return h.pnl<-10;});
+    insights.push({type:botH.length?'warn':'ok',label:'Hour of Day Pattern',text:'Best UTC hours: <strong>'+topH.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+', '+h.trades+'t)';}).join(' · ')+'</strong>.'+(botH.length?' Problem hours: <strong>'+botH.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+')';}).join(', ')+'</strong>. Consider Phase 3 time filter.':'')});
   }
 
   if(db.daily.length>0){
-    var bal = lastDaily?parseFloat(lastDaily.end_balance||0):0;
-    var startBal = db.daily[0]?parseFloat(db.daily[0].start_balance||0):0;
-    var growth = startBal?((bal-startBal)/startBal*100):0;
-    var compTone = compRate>=60?'good':compRate>=40?'warn':'bad';
-    insights.push({type:compTone,label:'Compound Progress',text:'On <strong>Day '+((lastDaily&&lastDaily.compound_day)||'?')+'</strong>, balance <strong>$'+bal.toFixed(2)+'</strong>. Target hit <strong>'+targetHitDays+'/'+db.daily.length+' days ('+compRate+'%)</strong>. '+(startBal?'Account grown <strong>'+(growth>=0?'+':'')+growth.toFixed(1)+'%</strong> since Day 1. ':'')+( compRate>=60?'Compound performing well — stay disciplined.':compRate>=40?'Moderate hit rate — review losing days for patterns.':'Target missed more than hit — check lot sizing and daily target calibration.')});
-  }
-
-  if(exits.wins+exits.losses+exits.be>0){
-    insights.push({type:'ok',label:'Exit Analysis',text:'<strong>'+exits.wins+' TP wins</strong>, <strong>'+exits.losses+' SL hits</strong>, <strong>'+exits.be+' breakeven exits</strong>'+(exits.compClose?', <strong>'+exits.compClose+' compound closes</strong>':'')+'. '+(exits.be>0?'Breakeven exits confirm partial TP + SL-to-BE sequence is firing and protecting capital. ':'')+' Avg win: '+fmtPnl(exits.avgWin)+' | Avg loss: '+fmtPnl(exits.avgLoss)+'.'});
+    var lastD = db.daily[db.daily.length-1];
+    var endBal = lastD ? parseFloat(lastD.end_balance||0) : 0;
+    var startBal = db.daily[0] ? parseFloat(db.daily[0].start_balance||0) : 0;
+    var growth = startBal ? ((endBal-startBal)/startBal*100) : 0;
+    insights.push({type:compRate>=60?'good':compRate>=40?'warn':'bad',label:'Compound Progress',text:'Day <strong>'+(lastD&&lastD.compound_day||'?')+'</strong>, balance <strong>$'+endBal.toFixed(2)+'</strong>. Target hit <strong>'+targetHitDays+'/'+db.daily.length+' days ('+compRate+'%)</strong>.'+(startBal?' Account grown <strong>'+(growth>=0?'+':'')+growth.toFixed(1)+'%</strong> since Day 1.':'')});
   }
 
   var recs = [];
-  if(s.wr<50) recs.push('Win rate below 50% — consider raising InpMinStrengthGap to filter weaker entries.');
-  if(s.rr<1) recs.push('R:R below 1:1 — review ADR-based SL/TP settings. Consider widening TP or tightening SL.');
-  if(openRate>50) recs.push('Signal open rate '+openRate+'% is high — EA may be overtrading. Consider raising InpMinStrengthGap.');
-  if(compRate<50&&db.daily.length>=5) recs.push('Compound target hit rate below 50% across '+db.daily.length+' days — check lot sizing vs broker spreads and target calibration.');
-  if(stale.length>0) recs.push(stale.length+' stale OPEN records detected — run Supabase cleanup query to keep dashboard accurate.');
-  if(hourData.length>0){
-    var badH2 = hourData.filter(function(h){return h.pnl<-8;});
-    if(badH2.length) recs.push('Problem hours: '+badH2.map(function(h){return h.hour+':00 UTC';}).join(', ')+' — monitor as trade count grows. Potential Phase 3 time filter adjustment.');
-  }
-  var worstPR = pairs.find(function(p){return p.trades>=3&&p.pnl<-10;});
-  if(worstPR) recs.push(worstPR.sym+' has '+worstPR.trades+' trades at '+Math.round(worstPR.wins/worstPR.trades*100)+'% WR ('+fmtPnl(worstPR.pnl)+') — consider temporarily disabling this pair.');
-  if(recs.length===0) recs.push('System looks healthy across all key metrics — maintain current settings and let the compound run.');
+  if(s.wr<55) recs.push('Win rate '+s.wr.toFixed(1)+'% — below 55% target. Consider raising InpMinStrengthGap to filter weak entries.');
+  if(s.rr<1) recs.push('R:R '+s.rr.toFixed(2)+' below 1:1 — avg win $'+s.avgWin.toFixed(2)+' vs avg loss $'+Math.abs(s.avgLoss).toFixed(2)+'. Review ADR-based SL/TP settings.');
+  if(exits.manual>0&&exits.avgManual<0) recs.push('Stop manual closing — EA-managed exits averaging '+fmtPnl(exits.avgEa>0?exits.avgEa:exits.avgTp)+' vs manual '+fmtPnl(exits.avgManual)+'.');
+  if(hourData.length>0){var badH2=hourData.filter(function(h){return h.pnl<-10;});if(badH2.length) recs.push('Problem hours '+badH2.map(function(h){return h.hour+':00 UTC';}).join(', ')+' — flag for Phase 3 time filter consideration.');}
+  var worstPR=pairs.find(function(p){return p.trades>=3&&p.pnl<-10;});
+  if(worstPR) recs.push(worstPR.sym+' dragging ('+worstPR.trades+'t, '+Math.round(worstPR.wins/worstPR.trades*100)+'%WR, '+fmtPnl(worstPR.pnl)+') — flag for Phase 3 pair review.');
+  if(recs.length===0) recs.push('v3.67 clean data looking healthy — maintain current settings and accumulate more trades before Phase 3 changes.');
   insights.push({type:'blue',label:'Actionable Recommendations',recs:recs});
 }
 
@@ -391,7 +379,7 @@ function setTab(id,btn) {
   document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
   if(btn) btn.classList.add('active');
   else{
-    var map=['overview','analysis','hour','pairs','exits','signals','trades','compound','snapshot','anomalies'];
+    var map=['overview','analysis','hour','pairs','exits','positions','signals','compound','snapshot','anomalies'];
     var idx=map.indexOf(id);
     var tabs=document.querySelectorAll('.tab');
     if(idx>=0) tabs[idx].classList.add('active');
@@ -400,17 +388,17 @@ function setTab(id,btn) {
 }
 
 function render() {
-  if(!db.trades.length&&!db.signals.length) return;
+  if(!db.posData.length&&!db.signals.length) return;
   var c=document.getElementById('mainContent');
-  if(activeTab==='overview') c.innerHTML=renderOverview();
-  else if(activeTab==='analysis') c.innerHTML=renderAnalysis();
-  else if(activeTab==='hour') c.innerHTML=renderHourOfDay();
-  else if(activeTab==='pairs') c.innerHTML=renderPairPerformance();
-  else if(activeTab==='exits') c.innerHTML=renderExitAnalysis();
-  else if(activeTab==='signals') c.innerHTML=renderSignals();
-  else if(activeTab==='trades') c.innerHTML=renderTrades();
-  else if(activeTab==='compound') c.innerHTML=renderCompound();
-  else if(activeTab==='snapshot') c.innerHTML=renderSnapshot();
+  if(activeTab==='overview')   c.innerHTML=renderOverview();
+  else if(activeTab==='analysis')  c.innerHTML=renderAnalysis();
+  else if(activeTab==='hour')      c.innerHTML=renderHourOfDay();
+  else if(activeTab==='pairs')     c.innerHTML=renderPairPerformance();
+  else if(activeTab==='exits')     c.innerHTML=renderExitAnalysis();
+  else if(activeTab==='positions') c.innerHTML=renderPositions();
+  else if(activeTab==='signals')   c.innerHTML=renderSignals();
+  else if(activeTab==='compound')  c.innerHTML=renderCompound();
+  else if(activeTab==='snapshot')  c.innerHTML=renderSnapshot();
   else if(activeTab==='anomalies') c.innerHTML=renderAnomalies();
 }
 
@@ -419,13 +407,13 @@ function renderOverview() {
   var passC=checks.filter(function(c){return c.status==='ok';}).length;
   var hPct=checks.length?Math.round(passC/checks.length*100):0;
   var hCol=hPct>=80?'var(--green)':hPct>=50?'var(--gold)':'var(--red)';
-  var compCloses=db.trades.filter(function(t){return t.event==='COMPOUND_CLOSE';}).length;
+  var exits=getExitStats();
 
   var h='<div class="grid5">';
-  h+='<div class="card"><div class="card-title">Total P&amp;L</div><div class="kpi-val '+(s.totalPnl>=0?'green':'red')+'">'+fmtPnl(s.totalPnl)+'</div><div class="kpi-sub">'+s.closed+' closed trades</div></div>';
-  h+='<div class="card"><div class="card-title">Win Rate</div><div class="kpi-val '+(s.wr>=50?'green':'red')+'">'+s.wr.toFixed(1)+'%</div><div class="kpi-sub">'+s.wins+'W / '+s.losses+'L</div></div>';
+  h+='<div class="card"><div class="card-title">Net P&amp;L <span class="src-badge">positions</span></div><div class="kpi-val '+(s.totalPnl>=0?'green':'red')+'">'+fmtPnl(s.totalPnl)+'</div><div class="kpi-sub">'+s.closed+' closed positions</div></div>';
+  h+='<div class="card"><div class="card-title">Win Rate</div><div class="kpi-val '+(s.wr>=55?'green':s.wr>=40?'gold':'red')+'">'+s.wr.toFixed(1)+'%</div><div class="kpi-sub">'+s.wins+'W / '+s.losses+'L</div></div>';
   h+='<div class="card"><div class="card-title">Risk:Reward</div><div class="kpi-val '+(s.rr>=1?'green':'red')+'">'+s.rr.toFixed(2)+'</div><div class="kpi-sub">Avg win '+fmtPnl(s.avgWin)+'</div></div>';
-  h+='<div class="card"><div class="card-title">Open Positions</div><div class="kpi-val cyan">'+s.positions+'</div><div class="kpi-sub">'+db.signals.length+' total signals</div></div>';
+  h+='<div class="card"><div class="card-title">Open Positions</div><div class="kpi-val cyan">'+s.positions+'</div><div class="kpi-sub">'+db.signals.length+' signals loaded</div></div>';
   h+='<div class="card"><div class="card-title">System Health</div><div class="kpi-val" style="color:'+hCol+'">'+hPct+'%</div><div class="kpi-sub">'+passC+'/'+checks.length+' checks pass</div></div>';
   h+='</div>';
 
@@ -436,10 +424,10 @@ function renderOverview() {
 
   h+='<div class="card"><div class="card-title">Session Summary</div>';
   h+='<div class="grid2" style="gap:10px;margin-bottom:12px">';
-  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--blue)">'+db.signals.length+'</div><div style="font-size:11px;color:var(--sub)">Total Signals</div></div>';
-  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--green)">'+s.opened+'</div><div style="font-size:11px;color:var(--sub)">Opened</div></div>';
-  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--gold)">'+s.blocked+'</div><div style="font-size:11px;color:var(--sub)">Blocked</div></div>';
-  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--purple)">'+compCloses+'</div><div style="font-size:11px;color:var(--sub)">Compound Closes</div></div>';
+  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--blue)">'+db.signals.length+'</div><div style="font-size:11px;color:var(--sub)">Signals Loaded</div></div>';
+  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--green)">'+s.closed+'</div><div style="font-size:11px;color:var(--sub)">Positions (clean)</div></div>';
+  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--green)">'+exits.tp+'</div><div style="font-size:11px;color:var(--sub)">TP Hits</div></div>';
+  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--red)">'+exits.sl+'</div><div style="font-size:11px;color:var(--sub)">SL Hits</div></div>';
   h+='</div>';
   if(s.lastDaily){
     var pv=parseFloat(s.lastDaily.daily_pnl||0);
@@ -448,11 +436,11 @@ function renderOverview() {
     h+='<div style="display:flex;gap:16px;flex-wrap:wrap">';
     h+='<div><div style="font-size:11px;color:var(--sub)">Day</div><div style="font-weight:700;color:var(--cyan)">'+s.lastDaily.compound_day+'</div></div>';
     h+='<div><div style="font-size:11px;color:var(--sub)">P&amp;L</div><div style="font-weight:700;color:'+(pv>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(pv)+'</div></div>';
-    h+='<div><div style="font-size:11px;color:var(--sub)">Balance</div><div style="font-weight:700;color:#fff">$'+parseFloat(s.lastDaily.end_balance||0).toFixed(2)+'</div></div>';
-    h+='<div><div style="font-size:11px;color:var(--sub)">Target</div><div style="font-weight:700;color:'+(s.lastDaily.target_hit?'var(--green)':'var(--sub)')+'">'+( s.lastDaily.target_hit?'✓ HIT':'MISS')+'</div></div>';
+    h+='<div><div style="font-size:11px;color:var(--sub)">Balance</div><div style="font-weight:700;color:var(--text)">$'+parseFloat(s.lastDaily.end_balance||0).toFixed(2)+'</div></div>';
+    h+='<div><div style="font-size:11px;color:var(--sub)">Target</div><div style="font-weight:700;color:'+(s.lastDaily.target_hit?'var(--green)':'var(--sub)')+'">'+( s.lastDaily.target_hit?'HIT':'MISS')+'</div></div>';
     h+='</div></div>';
   }
-  h+='<button class="btn-smart" style="width:100%" onclick="setTab(\'analysis\',null);render()">🧠 View Full Analysis</button>';
+  h+='<button class="btn-smart" style="width:100%" onclick="setTab(\'analysis\',null);render()">Smart Analysis</button>';
   h+='</div></div>';
   return h;
 }
@@ -466,9 +454,9 @@ function renderAnalysis() {
 
   var h='<div class="analysis-panel">';
   h+='<div class="analysis-header"><div class="analysis-icon">🧠</div>';
-  h+='<div><div class="analysis-title">Smart Analysis Report</div><div class="analysis-subtitle">Rule-based analysis — performance, signals, hours, pairs, exits, compound</div></div>';
+  h+='<div><div class="analysis-title">Smart Analysis Report</div><div class="analysis-subtitle">Powered by positions table — real net P&L including commission &amp; swap</div></div>';
   h+='<div style="margin-left:auto"><div class="score-ring"><div class="score-circle" style="color:'+hCol+';border-color:'+hCol+'">'+hPct+'%</div>';
-  h+='<div><div style="font-size:12px;font-weight:700;color:#fff">System Health</div><div style="font-size:11px;color:var(--sub)">'+passC+'/'+checks.length+' checks passing</div></div></div></div>';
+  h+='<div><div style="font-size:12px;font-weight:700;color:#1e293b">System Health</div><div style="font-size:11px;color:var(--sub)">'+passC+'/'+checks.length+' checks passing</div></div></div></div>';
   h+='</div>';
   mainI.forEach(function(i){
     var cls=i.type==='good'?'good':i.type==='bad'?'bad':i.type==='warn'?'warn':'';
@@ -481,16 +469,16 @@ function renderAnalysis() {
   }
   h+='</div>';
   if(anomalies.length){
-    h+='<div class="card"><div class="card-title">⚠ Active Anomalies ('+anomalies.length+')</div>';
+    h+='<div class="card"><div class="card-title">Active Anomalies ('+anomalies.length+')</div>';
     anomalies.forEach(function(a){h+='<div class="anomaly-item '+(a.type==='warn'?'aw':'')+'"><div class="anomaly-title">'+(a.type==='warn'?'⚠ ':'🚨 ')+a.title+'</div><div class="anomaly-desc">'+a.desc+'</div></div>';});
     h+='</div>';
-  } else h+='<div class="card" style="text-align:center;padding:20px"><span style="color:var(--green);font-size:13px;font-weight:700">✓ No anomalies detected</span></div>';
+  } else h+='<div class="card" style="text-align:center;padding:20px"><span style="color:var(--green);font-size:13px;font-weight:700">No anomalies detected</span></div>';
   return h;
 }
 
 function renderHourOfDay() {
   var hourData=getHourStats();
-  if(!hourData.length) return '<div class="empty"><p>No closed trades in selected date range</p></div>';
+  if(!hourData.length) return '<div class="empty"><p>No positions in selected date range</p></div>';
   var maxAbs=Math.max.apply(null,hourData.map(function(h){return Math.abs(h.pnl);}));
   if(maxAbs===0) maxAbs=1;
   var bestH=hourData.reduce(function(a,b){return b.pnl>a.pnl?b:a;});
@@ -501,11 +489,11 @@ function renderHourOfDay() {
   var h='<div class="grid4" style="margin-bottom:16px">';
   h+='<div class="card"><div class="card-title">Best Hour (UTC)</div><div class="kpi-val green">'+bestH.hour+':00</div><div class="kpi-sub">'+fmtPnl(bestH.pnl)+' · '+bestH.trades+'t · '+Math.round(bestH.wins/bestH.trades*100)+'%WR</div></div>';
   h+='<div class="card"><div class="card-title">Worst Hour (UTC)</div><div class="kpi-val red">'+worstH.hour+':00</div><div class="kpi-sub">'+fmtPnl(worstH.pnl)+' · '+worstH.trades+'t · '+Math.round(worstH.wins/worstH.trades*100)+'%WR</div></div>';
-  h+='<div class="card"><div class="card-title">Active Hours</div><div class="kpi-val cyan">'+hourData.length+'</div><div class="kpi-sub">of 24 · '+totalTrades+' trades</div></div>';
-  h+='<div class="card"><div class="card-title">Combined P&amp;L</div><div class="kpi-val '+(totalPnl>=0?'green':'red')+'">'+fmtPnl(totalPnl)+'</div><div class="kpi-sub">across all active hours</div></div>';
+  h+='<div class="card"><div class="card-title">Active Hours</div><div class="kpi-val cyan">'+hourData.length+'</div><div class="kpi-sub">of 24 · '+totalTrades+' positions</div></div>';
+  h+='<div class="card"><div class="card-title">Total P&amp;L</div><div class="kpi-val '+(totalPnl>=0?'green':'red')+'">'+fmtPnl(totalPnl)+'</div><div class="kpi-sub">across all hours</div></div>';
   h+='</div>';
 
-  h+='<div class="card" style="margin-bottom:16px"><div class="card-title">P&amp;L by Hour (UTC — broker chart time = UTC+3)</div><div class="hour-chart">';
+  h+='<div class="card" style="margin-bottom:16px"><div class="card-title">P&amp;L by Hour Opened (UTC — broker chart time = UTC+3)</div><div class="hour-chart">';
   for(var hh=0;hh<24;hh++) {
     var hd=null;
     for(var xx=0;xx<hourData.length;xx++){if(hourData[xx].hour===hh){hd=hourData[xx];break;}}
@@ -516,8 +504,8 @@ function renderHourOfDay() {
       var col=hd.pnl>=0?'var(--green)':'var(--red)';
       var wr=Math.round(hd.wins/hd.trades*100);
       h+='<div class="hour-bar" style="width:'+pct+'%;background:'+col+'">'+(pct>15?fmtPnl(hd.pnl):'')+'</div>';
-      h+='<div class="hour-stats">'+fmtPnl(hd.pnl)+'&nbsp;|&nbsp;'+hd.trades+'t&nbsp;|&nbsp;'+wr+'%WR</div>';
-    } else h+='<div style="font-size:11px;color:#283548">— no trades</div>';
+      h+='<div class="hour-stats">'+fmtPnl(hd.pnl)+' | '+hd.trades+'t | '+wr+'%WR</div>';
+    } else h+='<div style="font-size:11px;color:#cbd5e1">— no positions</div>';
     h+='</div></div>';
   }
   h+='</div></div>';
@@ -525,48 +513,41 @@ function renderHourOfDay() {
   var goodH=hourData.filter(function(x){return x.pnl>0;}).sort(function(a,b){return b.pnl-a.pnl;});
   var badH=hourData.filter(function(x){return x.pnl<0;}).sort(function(a,b){return a.pnl-b.pnl;});
   h+='<div class="card"><div class="card-title">Hour Summary</div>';
-  if(goodH.length){
-    h+='<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:700;color:var(--green)">WINNING HOURS: </span>';
-    h+='<span style="font-size:12px;color:#e2e8f0">'+goodH.map(function(x){return '<strong style="color:#fff">'+x.hour+':00</strong> ('+fmtPnl(x.pnl)+', '+x.trades+'t, '+Math.round(x.wins/x.trades*100)+'%WR)';}).join('&nbsp;·&nbsp;')+'</span></div>';
-  }
-  if(badH.length){
-    h+='<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:700;color:var(--red)">PROBLEM HOURS: </span>';
-    h+='<span style="font-size:12px;color:#e2e8f0">'+badH.map(function(x){return '<strong style="color:#fff">'+x.hour+':00</strong> ('+fmtPnl(x.pnl)+', '+x.trades+'t, '+Math.round(x.wins/x.trades*100)+'%WR)';}).join('&nbsp;·&nbsp;')+'</span></div>';
-  }
-  h+='<div style="font-size:11px;color:var(--sub);padding-top:8px;border-top:1px solid var(--border)">UTC+3 = broker chart time &nbsp;·&nbsp; 10:00 UTC = 13:00 broker time &nbsp;·&nbsp; Patterns strengthen after 50+ trades — treat current data as directional only.</div>';
+  if(goodH.length) h+='<div style="margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--green)">WINNING: </span>'+goodH.map(function(x){return '<strong>'+x.hour+':00</strong> ('+fmtPnl(x.pnl)+', '+x.trades+'t, '+Math.round(x.wins/x.trades*100)+'%WR)';}).join(' · ')+'</div>';
+  if(badH.length) h+='<div style="margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--red)">PROBLEM: </span>'+badH.map(function(x){return '<strong>'+x.hour+':00</strong> ('+fmtPnl(x.pnl)+', '+x.trades+'t, '+Math.round(x.wins/x.trades*100)+'%WR)';}).join(' · ')+'</div>';
+  h+='<div style="font-size:11px;color:var(--sub);padding-top:8px;border-top:1px solid var(--border)">UTC+3 = broker chart time · Patterns strengthen after 50+ positions — treat as directional only at this sample size.</div>';
   h+='</div>';
   return h;
 }
 
 function renderPairPerformance() {
   var pairs=getPairStats();
-  if(!pairs.length) return '<div class="empty"><p>No closed trades yet</p></div>';
+  if(!pairs.length) return '<div class="empty"><p>No positions yet</p></div>';
   var maxAbs=Math.max.apply(null,pairs.map(function(p){return Math.abs(p.pnl);}));
   if(maxAbs===0) maxAbs=1;
   var profPairs=pairs.filter(function(p){return p.pnl>0;}).length;
   var totalT=pairs.reduce(function(a,p){return a+p.trades;},0);
 
   var h='<div class="grid4" style="margin-bottom:16px">';
-  h+='<div class="card"><div class="card-title">Pairs Traded</div><div class="kpi-val">'+pairs.length+'</div><div class="kpi-sub">'+profPairs+' profitable / '+(pairs.length-profPairs)+' negative</div></div>';
-  h+='<div class="card"><div class="card-title">Best Pair</div><div class="kpi-val green">'+pairs[0].sym+'</div><div class="kpi-sub">'+fmtPnl(pairs[0].pnl)+' · '+Math.round(pairs[0].wins/pairs[0].trades*100)+'% WR</div></div>';
-  h+='<div class="card"><div class="card-title">Worst Pair</div><div class="kpi-val red">'+pairs[pairs.length-1].sym+'</div><div class="kpi-sub">'+fmtPnl(pairs[pairs.length-1].pnl)+' · '+Math.round(pairs[pairs.length-1].wins/pairs[pairs.length-1].trades*100)+'% WR</div></div>';
-  h+='<div class="card"><div class="card-title">Total Trades</div><div class="kpi-val">'+totalT+'</div><div class="kpi-sub">across '+pairs.length+' pairs</div></div>';
+  h+='<div class="card"><div class="card-title">Pairs Traded</div><div class="kpi-val">'+pairs.length+'</div><div class="kpi-sub">'+profPairs+' profitable / '+(pairs.length-profPairs)+' losing</div></div>';
+  h+='<div class="card"><div class="card-title">Best Pair</div><div class="kpi-val green">'+pairs[0].sym+'</div><div class="kpi-sub">'+fmtPnl(pairs[0].pnl)+' · '+Math.round(pairs[0].wins/pairs[0].trades*100)+'%WR</div></div>';
+  h+='<div class="card"><div class="card-title">Worst Pair</div><div class="kpi-val red">'+pairs[pairs.length-1].sym+'</div><div class="kpi-sub">'+fmtPnl(pairs[pairs.length-1].pnl)+' · '+Math.round(pairs[pairs.length-1].wins/pairs[pairs.length-1].trades*100)+'%WR</div></div>';
+  h+='<div class="card"><div class="card-title">Total Positions</div><div class="kpi-val">'+totalT+'</div><div class="kpi-sub">across '+pairs.length+' pairs</div></div>';
   h+='</div>';
 
-  h+='<div class="card" style="margin-bottom:16px"><div class="card-title">P&amp;L by Pair</div>';
+  h+='<div class="card" style="margin-bottom:16px"><div class="card-title">Net P&amp;L by Pair (positions table)</div>';
   pairs.forEach(function(p){
     var wr=Math.round(p.wins/p.trades*100);
     var pct=Math.max(2,Math.round(Math.abs(p.pnl)/maxAbs*100));
-    h+='<div style="margin-bottom:10px">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
-    h+='<span style="font-size:12px;font-weight:700;color:#fff">'+p.sym+'</span>';
-    h+='<div style="display:flex;gap:12px"><span style="font-size:11px;color:var(--sub)">'+p.trades+' trades</span><span style="font-size:11px;color:var(--sub)">'+wr+'% WR</span><span style="font-size:12px;font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</span></div>';
+    h+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+    h+='<span style="font-size:12px;font-weight:700;color:#1e293b">'+p.sym+'</span>';
+    h+='<div style="display:flex;gap:12px"><span style="font-size:11px;color:var(--sub)">'+p.trades+'t</span><span style="font-size:11px;color:var(--sub)">'+wr+'%WR</span><span style="font-size:12px;font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</span></div>';
     h+='</div><div class="progress"><div class="progress-bar" style="width:'+pct+'%;background:'+(p.pnl>=0?'var(--green)':'var(--red)')+'"></div></div></div>';
   });
   h+='</div>';
 
   h+='<div class="card"><div class="card-title">Pair Detail Table</div><div class="tbl-wrap"><table>';
-  h+='<thead><tr><th>Pair</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win Rate</th><th>Total P&amp;L</th><th>Avg Win</th><th>Avg Loss</th><th>R:R</th></tr></thead><tbody>';
+  h+='<thead><tr><th>Pair</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win Rate</th><th>Net P&amp;L</th><th>Avg Win</th><th>Avg Loss</th><th>R:R</th></tr></thead><tbody>';
   pairs.forEach(function(p){
     var wr=Math.round(p.wins/p.trades*100);
     var avgW=p.wins?p.winPnl/p.wins:0;
@@ -577,11 +558,11 @@ function renderPairPerformance() {
     h+='<td>'+p.trades+'</td>';
     h+='<td style="color:var(--green)">'+p.wins+'</td>';
     h+='<td style="color:var(--red)">'+p.losses+'</td>';
-    h+='<td><span style="font-weight:700;color:'+(wr>=50?'var(--green)':'var(--red)')+'">'+wr+'%</span></td>';
+    h+='<td><span style="font-weight:700;color:'+(wr>=55?'var(--green)':'var(--red)')+'">'+wr+'%</span></td>';
     h+='<td style="font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</td>';
     h+='<td style="color:var(--green)">'+(p.wins?fmtPnl(avgW):'—')+'</td>';
     h+='<td style="color:var(--red)">'+(p.losses?fmtPnl(avgL):'—')+'</td>';
-    h+='<td style="color:'+(rr>=1?'var(--green)':'var(--gold)')+'">'+(p.losses?rr.toFixed(2):'∞')+'</td>';
+    h+='<td style="color:'+(rr>=1?'var(--green)':'var(--gold))+'">'+(p.losses?rr.toFixed(2):'∞')+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table></div></div>';
@@ -590,43 +571,89 @@ function renderPairPerformance() {
 
 function renderExitAnalysis() {
   var exits=getExitStats();
-  var total=exits.wins+exits.losses+exits.be+exits.compClose;
-  if(total===0) return '<div class="empty"><p>No closed trades yet</p></div>';
+  var total=exits.tp+exits.sl+exits.ea+exits.manual;
+  if(total===0) return '<div class="empty"><p>No closed positions yet</p></div>';
 
   var h='<div class="grid4" style="margin-bottom:16px">';
-  h+='<div class="card"><div class="card-title">TP Wins</div><div class="kpi-val green">'+exits.wins+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgWin)+'</div></div>';
-  h+='<div class="card"><div class="card-title">SL Losses</div><div class="kpi-val red">'+exits.losses+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgLoss)+'</div></div>';
-  h+='<div class="card"><div class="card-title">Breakeven Exits</div><div class="kpi-val" style="color:var(--sub)">'+exits.be+'</div><div class="kpi-sub">SL-to-BE fires</div></div>';
-  h+='<div class="card"><div class="card-title">Compound Closes</div><div class="kpi-val" style="color:var(--purple)">'+exits.compClose+'</div><div class="kpi-sub">Daily target hits</div></div>';
+  h+='<div class="card"><div class="card-title">TP Hits</div><div class="kpi-val green">'+exits.tp+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgTp)+'</div></div>';
+  h+='<div class="card"><div class="card-title">SL Hits</div><div class="kpi-val red">'+exits.sl+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgSl)+'</div></div>';
+  h+='<div class="card"><div class="card-title">EA Closes</div><div class="kpi-val cyan">'+exits.ea+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgEa)+'</div></div>';
+  h+='<div class="card"><div class="card-title">Manual Closes</div><div class="kpi-val gold">'+exits.manual+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgManual)+'</div></div>';
   h+='</div>';
 
   h+='<div class="card" style="margin-bottom:16px"><div class="card-title">Exit Distribution</div>';
   var bars=[
-    {label:'TP Wins',count:exits.wins,col:'var(--green)'},
-    {label:'SL Losses',count:exits.losses,col:'var(--red)'},
-    {label:'Breakeven (SL-to-BE)',count:exits.be,col:'#64748b'},
-    {label:'Compound Close',count:exits.compClose,col:'var(--purple)'}
+    {label:'TP Hits',count:exits.tp,col:'var(--green)',avg:exits.avgTp},
+    {label:'SL Hits',count:exits.sl,col:'var(--red)',avg:exits.avgSl},
+    {label:'EA Close',count:exits.ea,col:'var(--cyan)',avg:exits.avgEa},
+    {label:'Manual Close',count:exits.manual,col:'var(--gold)',avg:exits.avgManual}
   ];
   bars.filter(function(b){return b.count>0;}).forEach(function(b){
     var pct=Math.round(b.count/total*100);
-    h+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;font-weight:700;color:#fff">'+b.label+'</span><span style="font-size:12px;color:'+b.col+'">'+b.count+' ('+pct+'%)</span></div><div class="progress" style="height:10px"><div class="progress-bar" style="width:'+pct+'%;background:'+b.col+'"></div></div></div>';
+    h+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;font-weight:700;color:#1e293b">'+b.label+'</span><span style="font-size:12px;color:'+b.col+'">'+b.count+' ('+pct+'%) · avg '+fmtPnl(b.avg)+'</span></div><div class="progress" style="height:10px"><div class="progress-bar" style="width:'+pct+'%;background:'+b.col+'"></div></div></div>';
   });
-  if(exits.be>0) h+='<div style="margin-top:12px;padding:12px;background:rgba(34,197,94,.08);border-left:3px solid var(--green);border-radius:4px;font-size:12px;color:#e2e8f0">✓ <strong style="color:var(--green)">'+exits.be+' breakeven exit(s)</strong> — partial TP + SL-to-BE sequence confirmed working, protecting capital on reversals.</div>';
-  if(exits.compClose>0) h+='<div style="margin-top:10px;padding:12px;background:rgba(168,85,247,.08);border-left:3px solid var(--purple);border-radius:4px;font-size:12px;color:#e2e8f0">✓ <strong style="color:var(--purple)">'+exits.compClose+' compound close(s)</strong> — daily target hit and all positions closed cleanly on these days.</div>';
   h+='</div>';
 
-  h+='<div class="card"><div class="card-title">Recent Exit Log</div><div class="tbl-wrap"><table>';
-  h+='<thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Lot</th><th>P&amp;L</th><th>Exit Type</th></tr></thead><tbody>';
-  exits.allClosed.slice().reverse().slice(0,60).forEach(function(t){
-    var p=parseFloat(t.pnl||0);
-    var et,ec;
-    if(p>0.5){et='TP Win';ec='exit-tp';}
-    else if(p>=-1){et='Breakeven';ec='exit-be';}
-    else{et='SL Hit';ec='exit-sl';}
-    h+='<tr><td style="color:var(--sub)">'+(t.ts||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(t.symbol||'—')+'</td><td><span class="badge-'+(t.direction||'').toLowerCase()+'">'+(t.direction||'—')+'</span></td><td>'+(t.lot||'—')+'</td><td style="font-weight:700;color:'+(p>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p)+'</td><td><span class="'+ec+'">'+et+'</span></td></tr>';
+  h+='<div class="card"><div class="card-title">Position Log (most recent 60)</div><div class="tbl-wrap"><table>';
+  h+='<thead><tr><th>Opened</th><th>Closed</th><th>Symbol</th><th>Dir</th><th>Lot</th><th>Net P&amp;L</th><th>Exit</th><th>Commission</th></tr></thead><tbody>';
+  exits.allPos.slice().reverse().slice(0,60).forEach(function(p){
+    var n=parseFloat(p.net_profit||0);
+    var ec,et;
+    if(p.close_reason==='tp'){et='TP Hit';ec='exit-tp';}
+    else if(p.close_reason==='sl'){et='SL Hit';ec='exit-sl';}
+    else if(p.close_reason==='ea'){et='EA Close';ec='exit-ea';}
+    else{et='Manual';ec='exit-manual';}
+    h+='<tr>';
+    h+='<td style="color:var(--sub);font-size:11px">'+(p.open_time||'').slice(0,16)+'</td>';
+    h+='<td style="color:var(--sub);font-size:11px">'+(p.close_time||'').slice(0,16)+'</td>';
+    h+='<td style="color:var(--blue);font-weight:700">'+(p.symbol||'—')+'</td>';
+    h+='<td><span class="badge-'+(p.direction||'').toLowerCase()+'">'+(p.direction||'—')+'</span></td>';
+    h+='<td>'+(p.lot||'—')+'</td>';
+    h+='<td style="font-weight:700;color:'+(n>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(n)+'</td>';
+    h+='<td><span class="'+ec+'">'+et+'</span></td>';
+    h+='<td style="color:var(--sub);font-size:11px">'+parseFloat(p.commission||0).toFixed(2)+'</td>';
+    h+='</tr>';
   });
-  exits.compCloseData.slice().reverse().slice(0,10).forEach(function(t){
-    h+='<tr><td style="color:var(--sub)">'+(t.ts||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(t.symbol||'—')+'</td><td><span class="badge-'+(t.direction||'').toLowerCase()+'">'+(t.direction||'—')+'</span></td><td>'+(t.lot||'—')+'</td><td style="color:var(--sub)">—</td><td><span class="exit-cc">Compound Close</span></td></tr>';
+  h+='</tbody></table></div></div>';
+  return h;
+}
+
+function renderPositions() {
+  var pos=db.posData.slice().reverse();
+  var pairs=getPairStats();
+  var maxAbs=Math.max.apply(null,pairs.map(function(p){return Math.abs(p.pnl);}).concat([1]));
+
+  var h='<div class="grid2" style="margin-bottom:16px">';
+  h+='<div class="card"><div class="card-title">P&amp;L by Pair</div>';
+  pairs.slice(0,12).forEach(function(p){
+    var wr=Math.round(p.wins/p.trades*100);
+    var pct=Math.max(2,Math.round(Math.abs(p.pnl)/maxAbs*100));
+    h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px"><span style="font-size:12px;font-weight:700;color:#1e293b">'+p.sym+'</span><div style="display:flex;gap:8px"><span style="font-size:11px;color:var(--sub)">'+wr+'%WR</span><span style="font-size:12px;font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</span></div></div><div class="progress"><div class="progress-bar" style="width:'+pct+'%;background:'+(p.pnl>=0?'var(--green)':'var(--red)')+'"></div></div></div>';
+  });
+  h+='</div>';
+
+  h+='<div class="card"><div class="card-title">Open Positions (from trades table)</div><div class="tbl-wrap" style="max-height:280px"><table><thead><tr><th>Symbol</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Opened</th></tr></thead><tbody>';
+  if(db.trades.length){
+    db.trades.forEach(function(t){h+='<tr><td style="color:var(--blue);font-weight:700">'+(t.symbol||'—')+'</td><td><span class="badge-'+(t.direction||'').toLowerCase()+'">'+(t.direction||'—')+'</span></td><td>'+(t.lot||'—')+'</td><td>'+parseFloat(t.entry||0).toFixed(5)+'</td><td style="color:var(--sub);font-size:11px">'+(t.ts||'').slice(0,16)+'</td></tr>';});
+  } else h+='<tr><td colspan="5" style="color:var(--sub);text-align:center">No open positions</td></tr>';
+  h+='</tbody></table></div></div></div>';
+
+  h+='<div class="card"><div class="card-title">All Positions — clean start ('+pos.length+' total)</div><div class="tbl-wrap"><table>';
+  h+='<thead><tr><th>Opened</th><th>Symbol</th><th>Dir</th><th>Lot</th><th>Net P&amp;L</th><th>Gross</th><th>Comm</th><th>Exit</th><th>Close Time</th></tr></thead><tbody>';
+  pos.slice(0,100).forEach(function(p){
+    var n=parseFloat(p.net_profit||0);
+    var ec=p.close_reason==='tp'?'exit-tp':p.close_reason==='sl'?'exit-sl':p.close_reason==='ea'?'exit-ea':'exit-manual';
+    h+='<tr>';
+    h+='<td style="color:var(--sub);font-size:11px">'+(p.open_time||'').slice(0,16)+'</td>';
+    h+='<td style="color:var(--blue);font-weight:700">'+(p.symbol||'—')+'</td>';
+    h+='<td><span class="badge-'+(p.direction||'').toLowerCase()+'">'+(p.direction||'—')+'</span></td>';
+    h+='<td>'+(p.lot||'—')+'</td>';
+    h+='<td style="font-weight:700;color:'+(n>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(n)+'</td>';
+    h+='<td style="color:var(--sub)">'+parseFloat(p.profit||0).toFixed(2)+'</td>';
+    h+='<td style="color:var(--sub)">'+parseFloat(p.commission||0).toFixed(2)+'</td>';
+    h+='<td><span class="'+ec+'">'+(p.close_reason||'—')+'</span></td>';
+    h+='<td style="color:var(--sub);font-size:11px">'+(p.close_time||'').slice(0,16)+'</td>';
+    h+='</tr>';
   });
   h+='</tbody></table></div></div>';
   return h;
@@ -643,49 +670,21 @@ function renderSignals() {
   h+='<div class="card"><div class="card-title">Block Reason Breakdown</div>';
   sortedR.slice(0,8).forEach(function(e){
     var pct=totalBl?Math.round(e[1]/totalBl*100):0;
-    h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:#e2e8f0">'+e[0]+'</span><span style="color:var(--gold)">'+e[1]+' ('+pct+'%)</span></div><div class="progress"><div class="progress-bar" style="width:'+pct+'%;background:var(--gold)"></div></div></div>';
+    h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:#1e293b">'+e[0]+'</span><span style="color:var(--gold)">'+e[1]+' ('+pct+'%)</span></div><div class="progress"><div class="progress-bar" style="width:'+pct+'%;background:var(--gold)"></div></div></div>';
   });
   h+='</div>';
-
-  h+='<div class="card"><div class="card-title">Gap Distribution (Opened Trades)</div>';
+  h+='<div class="card"><div class="card-title">Gap Distribution (Opened Signals)</div>';
   var gmap={};
   db.signals.filter(function(s){return s.result==='OPENED';}).forEach(function(s){var g=(Math.floor(parseFloat(s.gap||0)*5)/5).toFixed(1);if(!gmap[g])gmap[g]=0;gmap[g]++;});
   var gE=Object.entries(gmap).sort(function(a,b){return parseFloat(a[0])-parseFloat(b[0]);});
   var gMx=Math.max.apply(null,gE.map(function(e){return e[1];}).concat([1]));
   gE.forEach(function(e){h+='<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--sub)">&ge;'+e[0]+'</span><span style="color:var(--green)">'+e[1]+'</span></div><div class="progress"><div class="progress-bar" style="width:'+Math.round(e[1]/gMx*100)+'%;background:var(--green)"></div></div></div>';});
+  h+='<div style="margin-top:12px;padding:10px;background:#fef3c7;border-radius:6px;font-size:11px;color:#92400e">Note: signals table is a partial record — only '+db.signals.length+' signals pushed vs '+db.posData.length+' positions. Positions table is source of truth for trade stats.</div>';
   h+='</div></div>';
 
   h+='<div class="card"><div class="card-title">Recent Signals (last 200)</div><div class="tbl-wrap"><table>';
   h+='<thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Strong</th><th>Weak</th><th>Gap</th><th>Result</th><th>Block Reason</th></tr></thead><tbody>';
   sigs.forEach(function(s){h+='<tr><td style="color:var(--sub)">'+(s.ts||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(s.symbol||'—')+'</td><td><span class="badge-'+(s.direction||'').toLowerCase()+'">'+(s.direction||'—')+'</span></td><td style="color:var(--green)">'+(s.strong_cur||'—')+'</td><td style="color:var(--red)">'+(s.weak_cur||'—')+'</td><td>'+parseFloat(s.gap||0).toFixed(4)+'</td><td><span class="'+(s.result==='OPENED'?'badge-buy':'badge-blocked')+'">'+(s.result||'—')+'</span></td><td style="color:var(--sub);font-size:11px">'+(s.block_reason||'—')+'</td></tr>';});
-  h+='</tbody></table></div></div>';
-  return h;
-}
-
-function renderTrades() {
-  var pairs=getPairStats();
-  var closed=db.trades.filter(function(t){return t.event==='CLOSE';});
-  var maxP=Math.max.apply(null,pairs.map(function(p){return Math.abs(p.pnl);}).concat([1]));
-
-  var h='<div class="grid2" style="margin-bottom:16px">';
-  h+='<div class="card"><div class="card-title">P&amp;L by Pair</div>';
-  pairs.slice(0,10).forEach(function(p){
-    var wr=Math.round(p.wins/p.trades*100);
-    var pct=Math.max(2,Math.round(Math.abs(p.pnl)/maxP*100));
-    h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px"><span style="font-size:12px;font-weight:700;color:#fff">'+p.sym+'</span><div style="display:flex;gap:8px"><span style="font-size:11px;color:var(--sub)">'+wr+'% WR</span><span style="font-size:12px;font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</span></div></div><div class="progress"><div class="progress-bar" style="width:'+pct+'%;background:'+(p.pnl>=0?'var(--green)':'var(--red)')+'"></div></div></div>';
-  });
-  h+='</div>';
-
-  h+='<div class="card"><div class="card-title">Open Positions ('+db.positions.length+')</div><div class="tbl-wrap" style="max-height:280px"><table><thead><tr><th>Symbol</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Opened</th></tr></thead><tbody>';
-  db.positions.forEach(function(p){h+='<tr><td style="color:var(--blue);font-weight:700">'+(p.symbol||'—')+'</td><td><span class="badge-'+(p.direction||'').toLowerCase()+'">'+(p.direction||'—')+'</span></td><td>'+(p.lot||'—')+'</td><td>'+parseFloat(p.entry||0).toFixed(5)+'</td><td style="color:var(--sub);font-size:11px">'+(p.ts||'').slice(0,16)+'</td></tr>';});
-  h+='</tbody></table></div></div></div>';
-
-  h+='<div class="card"><div class="card-title">Recent Closed Trades</div><div class="tbl-wrap"><table>';
-  h+='<thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Lot</th><th>Entry</th><th>P&amp;L</th><th>Strong</th><th>Weak</th><th>Gap</th><th>Day</th></tr></thead><tbody>';
-  closed.slice().reverse().slice(0,50).forEach(function(t){
-    var p=parseFloat(t.pnl||0);
-    h+='<tr><td style="color:var(--sub)">'+(t.ts||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(t.symbol||'—')+'</td><td><span class="badge-'+(t.direction||'').toLowerCase()+'">'+(t.direction||'—')+'</span></td><td>'+(t.lot||'—')+'</td><td>'+parseFloat(t.entry||0).toFixed(5)+'</td><td style="font-weight:700;color:'+(p>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p)+'</td><td style="color:var(--green);font-size:11px">'+(t.strong_cur||'—')+'</td><td style="color:var(--red);font-size:11px">'+(t.weak_cur||'—')+'</td><td style="font-size:11px;color:var(--sub)">'+parseFloat(t.gap||0).toFixed(4)+'</td><td style="color:var(--cyan)">'+(t.compound_day||'—')+'</td></tr>';
-  });
   h+='</tbody></table></div></div>';
   return h;
 }
@@ -711,7 +710,7 @@ function renderCompound() {
   h+='<thead><tr><th>Date</th><th>Day</th><th>Start</th><th>End</th><th>P&amp;L</th><th>Target</th><th>Lot</th><th>Result</th></tr></thead><tbody>';
   days.slice().reverse().forEach(function(d){
     var pnl=parseFloat(d.daily_pnl||0);
-    h+='<tr><td style="color:var(--sub)">'+d.date+'</td><td style="color:var(--cyan);font-weight:700">'+d.compound_day+'</td><td>$'+parseFloat(d.start_balance||0).toFixed(2)+'</td><td>$'+parseFloat(d.end_balance||0).toFixed(2)+'</td><td style="color:'+(pnl>=0?'var(--green)':'var(--red)')+';font-weight:700">'+fmtPnl(pnl)+'</td><td style="color:var(--gold)">$'+parseFloat(d.compound_target||0).toFixed(2)+'</td><td>'+(d.compound_lot||'—')+'</td><td><span class="pill '+(d.target_hit?'pill-g':'pill-r')+'">'+(d.target_hit?'✓ HIT':'MISS')+'</span></td></tr>';
+    h+='<tr><td style="color:var(--sub)">'+d.date+'</td><td style="color:var(--cyan);font-weight:700">'+d.compound_day+'</td><td>$'+parseFloat(d.start_balance||0).toFixed(2)+'</td><td>$'+parseFloat(d.end_balance||0).toFixed(2)+'</td><td style="color:'+(pnl>=0?'var(--green)':'var(--red)')+';font-weight:700">'+fmtPnl(pnl)+'</td><td style="color:var(--gold)">$'+parseFloat(d.compound_target||0).toFixed(2)+'</td><td>'+(d.compound_lot||'—')+'</td><td><span class="pill '+(d.target_hit?'pill-g':'pill-r')+'">'+(d.target_hit?'HIT':'MISS')+'</span></td></tr>';
   });
   h+='</tbody></table></div></div>';
   return h;
@@ -728,7 +727,7 @@ function renderSnapshot() {
   curs.forEach(function(e){
     var cur=e[0],val=parseFloat(e[1]);
     var col=val<-0.3?'var(--green)':val>0.3?'var(--red)':'var(--sub)';
-    var zone=val<-0.3?'GREEN':val>0.3?'RED':'NEUTRAL';
+    var zone=val<-0.3?'STRONG':val>0.3?'WEAK':'NEUTRAL';
     h+='<div class="snap-item"><div class="snap-cur">'+cur+'</div><div class="snap-val" style="color:'+col+'">'+(val>0?'+':'')+val.toFixed(4)+'</div><div style="font-size:10px;color:'+col+';margin-top:2px">'+zone+'</div></div>';
   });
   h+='</div></div>';
@@ -755,7 +754,6 @@ function renderAnomalies() {
   return h;
 }
 
-// Init — load CSEA accounts on page load
 (async function(){
   try {
     var accts=await sb('accounts','select=id,label,account_number&strategy=eq.CSEA&order=label');
