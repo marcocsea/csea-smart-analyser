@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CSEA Smart Analyser v4.2</title>
+<title>CSEA Smart Analyser v4.3</title>
 <style>
 :root{--bg:#f1f5f9;--bg2:#ffffff;--bg3:#f8fafc;--border:#e2e8f0;--text:#1e293b;--sub:#64748b;--green:#16a34a;--red:#dc2626;--blue:#3b82f6;--gold:#d97706;--cyan:#0891b2;--purple:#7c3aed;--orange:#ea580c}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -145,7 +145,7 @@ tr:hover td{background:#f8fafc}
 
 <div class="header">
   <div class="logo">CSEA <span>Smart</span> Analyser</div>
-  <div class="badge">v4.2</div>
+  <div class="badge">v4.3</div>
   <div class="mode-switcher">
     <button class="mode-btn active" id="modeCsea" onclick="switchMode('csea')">CSEA</button>
     <button class="mode-btn" id="modeGtmo" onclick="switchMode('gtmo')">GTMO·GTS</button>
@@ -291,7 +291,9 @@ async function loadGtmoData() {
       : '&account_id=in.(a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6,c6596cb8-760f-480b-97b5-f4a3954c1b90,75fb14d6-0f3a-4196-86fc-c93d78f3d1b2)';
 
     var dateFilter = '&session_date=gte.' + fromDate + '&session_date=lte.' + toDate;
-    var orderDateFilter = '&close_time=gte.' + fromDate + 'T00:00:00&close_time=lte.' + toDate + 'T23:59:59';
+    // Orders: use earlier start date so manual trades (magic=0) from before GTMO are always available for badge logic
+    var orderFrom = fromDate < '2025-12-01' ? fromDate : '2025-12-01';
+    var orderDateFilter = '&close_time=gte.' + orderFrom + 'T00:00:00&close_time=lte.' + toDate + 'T23:59:59';
 
     var res = await Promise.all([
       sb('gtmo_sessions', 'select=*,accounts(label)&order=session_date,session_open' + acctFilter + dateFilter),
@@ -511,8 +513,8 @@ function renderGtmoOverview() {
     // EA vs Manual split (4xHub only)
     var eaManualHtml = '';
     if(acct.id === 'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6') {
-      var eaOrders  = os.filter(function(o){ return o.magic && parseInt(o.magic) !== 0; });
-      var manOrders = os.filter(function(o){ return !o.magic || parseInt(o.magic) === 0; });
+      var eaOrders  = os.filter(function(o){ return parseInt(o.magic||'0') !== 0; });
+      var manOrders = os.filter(function(o){ return parseInt(o.magic||'0') === 0; });
       var eaPnl  = eaOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
       var manPnl = manOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
       eaManualHtml = '<div class="divider"></div><div style="display:flex;gap:8px">';
@@ -774,8 +776,8 @@ function renderGtmoSessions() {
     var eaManualBadge = '';
     if(s.account_id === 'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6') {
       var sessionOrders = gtmoDb.orders.filter(function(o){ return o.account_id === s.account_id && o.close_time && o.close_time.slice(0,10) === s.session_date; });
-      var hasManual = sessionOrders.some(function(o){ return !o.magic || parseInt(o.magic) === 0; });
-      var hasEA     = sessionOrders.some(function(o){ return o.magic && parseInt(o.magic) !== 0; });
+      var hasManual = sessionOrders.some(function(o){ return parseInt(o.magic||'0') === 0; });
+      var hasEA     = sessionOrders.some(function(o){ return parseInt(o.magic||'0') !== 0; });
       if(hasManual && hasEA)  eaManualBadge = '<span class="ea-tag" style="margin-right:3px">EA</span><span class="manual-tag">+Manual</span> ';
       else if(hasManual)      eaManualBadge = '<span class="manual-tag">Manual</span> ';
       else if(hasEA)          eaManualBadge = '<span class="ea-tag">EA</span> ';
@@ -921,8 +923,8 @@ function renderGtmoIntelligence() {
 
     // 4xHub EA vs Manual breakdown
     if(acct.isLive) {
-      var eaOrders  = os.filter(function(o){ return o.magic && parseInt(o.magic) !== 0; });
-      var manOrders = os.filter(function(o){ return !o.magic || parseInt(o.magic) === 0; });
+      var eaOrders  = os.filter(function(o){ return parseInt(o.magic||'0') !== 0; });
+      var manOrders = os.filter(function(o){ return parseInt(o.magic||'0') === 0; });
       var eaPnl  = eaOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
       var manPnl = manOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
       var eaWins  = 0, eaLoss = 0, manWins = 0, manLoss = 0;
