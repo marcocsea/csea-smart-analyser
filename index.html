@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CSEA Smart Analyser v4.3</title>
+<title>CSEA Smart Analyser v4.4</title>
 <style>
 :root{--bg:#f1f5f9;--bg2:#ffffff;--bg3:#f8fafc;--border:#e2e8f0;--text:#1e293b;--sub:#64748b;--green:#16a34a;--red:#dc2626;--blue:#3b82f6;--gold:#d97706;--cyan:#0891b2;--purple:#7c3aed;--orange:#ea580c}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -145,7 +145,7 @@ tr:hover td{background:#f8fafc}
 
 <div class="header">
   <div class="logo">CSEA <span>Smart</span> Analyser</div>
-  <div class="badge">v4.3</div>
+  <div class="badge">v4.4</div>
   <div class="mode-switcher">
     <button class="mode-btn active" id="modeCsea" onclick="switchMode('csea')">CSEA</button>
     <button class="mode-btn" id="modeGtmo" onclick="switchMode('gtmo')">GTMO·GTS</button>
@@ -228,7 +228,7 @@ var gtmoAcctId = 'all';
 var activeGtmoTab = 'overview';
 var currentMode = 'csea';
 // Session log filter state — persists across re-renders
-var sfAcctVal = '', sfResultVal = '', sfDirVal = '';
+var sfAcctVal = '', sfResultVal = '', sfDirVal = '', sfTypeVal = '';
 
 // ─── SHARED FETCH ──────────────────────────────────────────────
 async function sb(table, params) {
@@ -317,7 +317,7 @@ async function loadGtmoData() {
 function setGtmoTab(id, btn) {
   activeGtmoTab = id;
   // Reset session filters when switching tabs
-  if(id !== 'sessions') { sfAcctVal = ''; sfResultVal = ''; sfDirVal = ''; }
+  if(id !== 'sessions') { sfAcctVal = ''; sfResultVal = ''; sfDirVal = ''; sfTypeVal = ''; }
   document.querySelectorAll('#gtmoTabBar .tab').forEach(function(t){
     t.classList.remove('active','gtmo-tab');
   });
@@ -742,12 +742,27 @@ function renderGtmoSessions() {
   h += '<option' + (sfDirVal==='BUY'?' selected':'') + '>BUY</option>';
   h += '<option' + (sfDirVal==='SELL'?' selected':'') + '>SELL</option>';
   h += '</select></div>';
+  h += '<div><span class="lbl">Trade Type: </span><select id="sfType" onchange="sfTypeVal=this.value;renderGtmo()" style="font-size:12px;padding:4px 8px">';
+  h += '<option value=""' + (sfTypeVal===''?' selected':'') + '>All</option>';
+  h += '<option value="manual"' + (sfTypeVal==='manual'?' selected':'') + '>0 — Manual</option>';
+  h += '<option value="ea"' + (sfTypeVal==='ea'?' selected':'') + '>1 — EA</option>';
+  h += '</select></div>';
   h += '</div></div>';
 
   // Apply filters using persistent state variables
   if(sfAcctVal) sessions = sessions.filter(function(s){ return s.account_id === sfAcctVal; });
   if(sfResultVal) sessions = sessions.filter(function(s){ return s.result === sfResultVal; });
   if(sfDirVal)  sessions = sessions.filter(function(s){ return s.signal_direction === sfDirVal; });
+  // Trade type filter — only meaningful for 4xHub (has mixed magic numbers)
+  if(sfTypeVal) {
+    sessions = sessions.filter(function(s) {
+      if(s.account_id !== 'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6') return true; // non-4xHub always passes
+      var dayOrders = gtmoDb.orders.filter(function(o){ return o.account_id === s.account_id && o.close_time && o.close_time.slice(0,10) === s.session_date; });
+      if(sfTypeVal === 'manual') return dayOrders.some(function(o){ return parseInt(o.magic||'0') === 0; });
+      if(sfTypeVal === 'ea')     return dayOrders.some(function(o){ return parseInt(o.magic||'0') !== 0; });
+      return true;
+    });
+  }
 
   // Summary strip
   var wins = sessions.filter(function(s){return s.result==='WIN';}).length;
