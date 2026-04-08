@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CSEA Smart Analyser v4.0</title>
+<title>CSEA Smart Analyser v4.1</title>
 <style>
 :root{--bg:#f1f5f9;--bg2:#ffffff;--bg3:#f8fafc;--border:#e2e8f0;--text:#1e293b;--sub:#64748b;--green:#16a34a;--red:#dc2626;--blue:#3b82f6;--gold:#d97706;--cyan:#0891b2;--purple:#7c3aed;--orange:#ea580c}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -145,7 +145,7 @@ tr:hover td{background:#f8fafc}
 
 <div class="header">
   <div class="logo">CSEA <span>Smart</span> Analyser</div>
-  <div class="badge">v4.0</div>
+  <div class="badge">v4.1</div>
   <div class="mode-switcher">
     <button class="mode-btn active" id="modeCsea" onclick="switchMode('csea')">CSEA</button>
     <button class="mode-btn" id="modeGtmo" onclick="switchMode('gtmo')">GTMO·GTS</button>
@@ -176,6 +176,10 @@ tr:hover td{background:#f8fafc}
     <option value="c6596cb8-760f-480b-97b5-f4a3954c1b90">GTMO Demo</option>
     <option value="75fb14d6-0f3a-4196-86fc-c93d78f3d1b2">GTS Vantage Demo</option>
   </select>
+  <span class="lbl">From:</span>
+  <input type="date" id="gtmoFrom" value="2026-03-09">
+  <span class="lbl">To:</span>
+  <input type="date" id="gtmoTo">
   <button class="btn-gtmo" onclick="loadGtmoData()">Load &amp; Analyse</button>
   <span id="gtmoLoadStatus" style="font-size:11px;color:var(--sub)"></span>
 </div>
@@ -203,7 +207,7 @@ tr:hover td{background:#f8fafc}
 <div class="main" id="mainContent">
   <div class="empty">
     <div style="font-size:36px;margin-bottom:10px">🧠</div>
-    <p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v4.0</p>
+    <p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v4.1</p>
     <p style="color:var(--sub)">Select an account, set clean-start date, then click Load &amp; Analyse</p>
   </div>
 </div>
@@ -252,12 +256,11 @@ function switchMode(mode) {
   if(mode === 'gtmo') {
     if(gtmoDb.sessions.length) renderGtmo();
     else {
-      document.getElementById('mainContent').innerHTML = '<div class="empty"><div style="font-size:36px;margin-bottom:10px">⚡</div><p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">GTMO·GTS Analyser</p><p style="color:var(--sub)">Select an account and click Load &amp; Analyse</p></div>';
-      loadGtmoData();
+      document.getElementById('mainContent').innerHTML = '<div class="empty"><div style="font-size:36px;margin-bottom:10px">⚡</div><p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">GTMO·GTS Analyser</p><p style="color:var(--sub)">Set your date range and click <strong>Load &amp; Analyse</strong></p></div>';
     }
   } else {
     if(db.posData.length) render();
-    else document.getElementById('mainContent').innerHTML = '<div class="empty"><div style="font-size:36px;margin-bottom:10px">🧠</div><p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v4.0</p><p style="color:var(--sub)">Select an account, set clean-start date, then click Load &amp; Analyse</p></div>';
+    else document.getElementById('mainContent').innerHTML = '<div class="empty"><div style="font-size:36px;margin-bottom:10px">🧠</div><p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v4.1</p><p style="color:var(--sub)">Select an account, set clean-start date, then click Load &amp; Analyse</p></div>';
   }
 }
 
@@ -270,21 +273,34 @@ async function loadGtmoData() {
   st.textContent = 'Fetching sessions & orders...';
   gtmoAcctId = document.getElementById('gtmoAcctSelect').value;
 
+  // Read date range
+  var fromDate = document.getElementById('gtmoFrom').value || '2026-01-01';
+  var toDate   = document.getElementById('gtmoTo').value;
+  // Default To = today
+  if(!toDate) {
+    var now = new Date();
+    toDate = now.toISOString().slice(0,10);
+    document.getElementById('gtmoTo').value = toDate;
+  }
+
   try {
     var acctFilter = gtmoAcctId !== 'all'
       ? '&account_id=eq.' + gtmoAcctId
       : '&account_id=in.(a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6,c6596cb8-760f-480b-97b5-f4a3954c1b90,75fb14d6-0f3a-4196-86fc-c93d78f3d1b2)';
 
+    var dateFilter = '&session_date=gte.' + fromDate + '&session_date=lte.' + toDate;
+    var orderDateFilter = '&close_time=gte.' + fromDate + 'T00:00:00&close_time=lte.' + toDate + 'T23:59:59';
+
     var res = await Promise.all([
-      sb('gtmo_sessions', 'select=*,accounts(label)&order=session_date,session_open' + acctFilter),
-      sb('gtmo_orders',   'select=*&order=close_time' + acctFilter)
+      sb('gtmo_sessions', 'select=*,accounts(label)&order=session_date,session_open' + acctFilter + dateFilter),
+      sb('gtmo_orders',   'select=*&order=close_time' + acctFilter + orderDateFilter)
     ]);
     gtmoDb.sessions = res[0];
     gtmoDb.orders   = res[1];
 
     dot.className = 'status-dot live';
     txt.textContent = 'Live';
-    st.textContent = gtmoDb.sessions.length + ' sessions · ' + gtmoDb.orders.length + ' orders';
+    st.textContent = gtmoDb.sessions.length + ' sessions · ' + gtmoDb.orders.length + ' orders · ' + fromDate + ' → ' + toDate;
     renderGtmo();
   } catch(e) {
     dot.className = 'status-dot';
@@ -745,6 +761,17 @@ function renderGtmoSessions() {
     var dirCls = s.signal_direction==='BUY'?'badge-buy':s.signal_direction==='SELL'?'badge-sell':'';
     var label = (s.accounts && s.accounts.label) || getGtmoAcctLabel(s.account_id);
 
+    // EA/Manual badge for 4xHub sessions
+    var eaManualBadge = '';
+    if(s.account_id === 'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6') {
+      var sessionOrders = gtmoDb.orders.filter(function(o){ return o.account_id === s.account_id && o.close_time && o.close_time.slice(0,10) === s.session_date; });
+      var hasManual = sessionOrders.some(function(o){ return !o.magic || parseInt(o.magic) === 0; });
+      var hasEA     = sessionOrders.some(function(o){ return o.magic && parseInt(o.magic) !== 0; });
+      if(hasManual && hasEA)  eaManualBadge = '<span class="ea-tag" style="margin-right:3px">EA</span><span class="manual-tag">+Manual</span> ';
+      else if(hasManual)      eaManualBadge = '<span class="manual-tag">Manual</span> ';
+      else if(hasEA)          eaManualBadge = '<span class="ea-tag">EA</span> ';
+    }
+
     // Parse pips from notes
     var pips = '—';
     var notesStr = s.notes || '';
@@ -767,7 +794,7 @@ function renderGtmoSessions() {
     h += '<td style="font-weight:700;color:' + (pnl>=0?'var(--green)':'var(--red)') + '">' + fmtPnl(pnl) + '</td>';
     h += '<td style="color:var(--sub)">' + (s.balance_close ? '£' + parseFloat(s.balance_close).toFixed(2) : '—') + '</td>';
     h += '<td>' + pips + '</td>';
-    h += '<td style="font-size:11px;color:var(--sub)">' + exitTag + cleanNotes + '</td>';
+    h += '<td style="font-size:11px;color:var(--sub)">' + eaManualBadge + exitTag + cleanNotes + '</td>';
     h += '</tr>';
   });
 
@@ -1199,6 +1226,10 @@ function renderAnomalies() {
 // Init CSEA accounts
 (async function(){
   try {
+    // Set default To date to today
+    var now = new Date();
+    document.getElementById('gtmoTo').value = now.toISOString().slice(0,10);
+
     var accts=await sb('accounts','select=id,label,account_number&strategy=eq.CSEA&order=label');
     var sel=document.getElementById('acctSelect');
     sel.innerHTML='<option value="">All CSEA Accounts</option>';
