@@ -360,7 +360,7 @@ function runAnalysis() {
     var endBal = lastD ? parseFloat(lastD.end_balance||0) : 0;
     var startBal = db.daily[0] ? parseFloat(db.daily[0].start_balance||0) : 0;
     var growth = startBal ? ((endBal-startBal)/startBal*100) : 0;
-    insights.push({type:compRate>=60?'good':compRate>=40?'warn':'bad',label:'Compound Progress',text:'Day <strong>'+(lastD&&lastD.compound_day||'?')+'</strong>, balance <strong>$'+endBal.toFixed(2)+'</strong>. Target hit <strong>'+targetHitDays+'/'+db.daily.length+' days ('+compRate+'%)</strong>.'+(startBal?' Account grown <strong>'+(growth>=0?'+':'')+growth.toFixed(1)+'%</strong> since Day 1.':'')});
+    insights.push({type:compRate>=60?'good':compRate>=40?'warn':'bad',label:'Compound Progress',text:'Day <strong>'+(lastD&&lastD.compound_day||'?')+'</strong>, balance <strong>£'+endBal.toFixed(2)+'</strong>. Target hit <strong>'+targetHitDays+'/'+db.daily.length+' days ('+compRate+'%)</strong>.'+(startBal?' Account grown <strong>'+(growth>=0?'+':'')+growth.toFixed(1)+'%</strong> since Day 1.':'')});
   }
 
   var recs = [];
@@ -436,7 +436,7 @@ function renderOverview() {
     h+='<div style="display:flex;gap:16px;flex-wrap:wrap">';
     h+='<div><div style="font-size:11px;color:var(--sub)">Day</div><div style="font-weight:700;color:var(--cyan)">'+s.lastDaily.compound_day+'</div></div>';
     h+='<div><div style="font-size:11px;color:var(--sub)">P&amp;L</div><div style="font-weight:700;color:'+(pv>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(pv)+'</div></div>';
-    h+='<div><div style="font-size:11px;color:var(--sub)">Balance</div><div style="font-weight:700;color:var(--text)">$'+parseFloat(s.lastDaily.end_balance||0).toFixed(2)+'</div></div>';
+    h+='<div><div style="font-size:11px;color:var(--sub)">Balance</div><div style="font-weight:700;color:var(--text)">£'+parseFloat(s.lastDaily.end_balance||0).toFixed(2)+'</div></div>';
     h+='<div><div style="font-size:11px;color:var(--sub)">Target</div><div style="font-weight:700;color:'+(s.lastDaily.target_hit?'var(--green)':'var(--sub)')+'">'+( s.lastDaily.target_hit?'HIT':'MISS')+'</div></div>';
     h+='</div></div>';
   }
@@ -700,7 +700,7 @@ function renderCompound() {
 
   var h='<div class="grid5" style="margin-bottom:16px">';
   h+='<div class="card"><div class="card-title">Current Day</div><div class="kpi-val cyan">'+(lastDay?lastDay.compound_day:'—')+'</div><div class="kpi-sub">'+(lastDay?lastDay.date:'')+'</div></div>';
-  h+='<div class="card"><div class="card-title">Balance</div><div class="kpi-val green">$'+(lastDay?endBal.toFixed(2):'—')+'</div><div class="kpi-sub">End of last session</div></div>';
+  h+='<div class="card"><div class="card-title">Balance</div><div class="kpi-val green">£'+(lastDay?endBal.toFixed(2):'—')+'</div><div class="kpi-sub">End of last session</div></div>';
   h+='<div class="card"><div class="card-title">Growth</div><div class="kpi-val '+(growth>=0?'green':'red')+'">'+(growth>=0?'+':'')+growth.toFixed(1)+'%</div><div class="kpi-sub">Since Day 1</div></div>';
   h+='<div class="card"><div class="card-title">Target Hit</div><div class="kpi-val gold">'+targetHit+'/'+days.length+'</div><div class="kpi-sub">'+(days.length?Math.round(targetHit/days.length*100):0)+'% rate</div></div>';
   h+='<div class="card"><div class="card-title">Total P&amp;L</div><div class="kpi-val '+(totalPnl>=0?'green':'red')+'">'+fmtPnl(totalPnl)+'</div><div class="kpi-sub">Across '+days.length+' days</div></div>';
@@ -710,7 +710,7 @@ function renderCompound() {
   h+='<thead><tr><th>Date</th><th>Day</th><th>Start</th><th>End</th><th>P&amp;L</th><th>Target</th><th>Lot</th><th>Result</th></tr></thead><tbody>';
   days.slice().reverse().forEach(function(d){
     var pnl=parseFloat(d.daily_pnl||0);
-    h+='<tr><td style="color:var(--sub)">'+d.date+'</td><td style="color:var(--cyan);font-weight:700">'+d.compound_day+'</td><td>$'+parseFloat(d.start_balance||0).toFixed(2)+'</td><td>$'+parseFloat(d.end_balance||0).toFixed(2)+'</td><td style="color:'+(pnl>=0?'var(--green)':'var(--red)')+';font-weight:700">'+fmtPnl(pnl)+'</td><td style="color:var(--gold)">$'+parseFloat(d.compound_target||0).toFixed(2)+'</td><td>'+(d.compound_lot||'—')+'</td><td><span class="pill '+(d.target_hit?'pill-g':'pill-r')+'">'+(d.target_hit?'HIT':'MISS')+'</span></td></tr>';
+    h+='<tr><td style="color:var(--sub)">'+d.date+'</td><td style="color:var(--cyan);font-weight:700">'+d.compound_day+'</td><td>£'+parseFloat(d.start_balance||0).toFixed(2)+'</td><td>£'+parseFloat(d.end_balance||0).toFixed(2)+'</td><td style="color:'+(pnl>=0?'var(--green)':'var(--red)')+';font-weight:700">'+fmtPnl(pnl)+'</td><td style="color:var(--gold)">£'+parseFloat(d.compound_target||0).toFixed(2)+'</td><td>'+(d.compound_lot||'—')+'</td><td><span class="pill '+(d.target_hit?'pill-g':'pill-r')+'">'+(d.target_hit?'HIT':'MISS')+'</span></td></tr>';
   });
   h+='</tbody></table></div></div>';
   return h;
