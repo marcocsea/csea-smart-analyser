@@ -359,8 +359,11 @@ function setGtmoTab(id, btn) {
 }
 
 function renderGtmo() {
-  if(!gtmoDb.sessions.length) return;
   var c = document.getElementById('mainContent');
+  if(!gtmoDb.sessions.length && !gtmoDb.orders.length) {
+    c.innerHTML = '<div class="empty"><p>No data found for selected account and date range</p></div>';
+    return;
+  }
   if(activeGtmoTab === 'overview')          c.innerHTML = renderGtmoOverview();
   else if(activeGtmoTab === 'runners')      c.innerHTML = renderGtmoRunners();
   else if(activeGtmoTab === 'sessions')     c.innerHTML = renderGtmoSessions();
