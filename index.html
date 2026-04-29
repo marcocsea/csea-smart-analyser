@@ -302,6 +302,61 @@ function switchMode(mode) {
 }
 
 // ── GTMO DATA LOAD ──────────────────────────────────────────────
+var GP_ACCT_ID = '42b3b312-1cb6-401b-b94a-9b462df44702';
+
+// ── GROUP GLOBALPRIME TRADES INTO SESSIONS ──────────────────────
+// Groups XAUUSD CLOSE trades into sessions using 30-min gap rule.
+// Returns array of synthetic session objects matching gtmo_sessions shape.
+function buildGPSessions(trades) {
+  // Filter Gold closes only, sorted by time
+  var closes = trades.filter(function(t){
+    return t.event === 'CLOSE' && t.symbol === 'XAUUSD';
+  }).sort(function(a,b){
+    return new Date(a.ts) - new Date(b.ts);
+  });
+
+  if(!closes.length) return [];
+
+  var sessions = [];
+  var group    = [closes[0]];
+  var GAP_MS   = 30 * 60 * 1000; // 30 minutes
+
+  for(var i = 1; i < closes.length; i++) {
+    var prev = new Date(closes[i-1].ts);
+    var curr = new Date(closes[i].ts);
+    if(curr - prev > GAP_MS) {
+      sessions.push(groupToSession(group));
+      group = [];
+    }
+    group.push(closes[i]);
+  }
+  if(group.length) sessions.push(groupToSession(group));
+  return sessions;
+}
+
+function groupToSession(orders) {
+  var totalPnl = orders.reduce(function(a,o){ return a + parseFloat(o.pnl||0); }, 0);
+  var result   = totalPnl > 0.01 ? 'WIN' : totalPnl < -0.01 ? 'LOSS' : 'BREAKEVEN';
+  var ts       = orders[orders.length-1].ts;
+  var date     = ts.slice(0,10);
+  var dir      = (orders[0].direction||'').toUpperCase();
+  var lot      = parseFloat(orders[0].lot||0);
+  var lastBal  = parseFloat(orders[orders.length-1].balance||0);
+  return {
+    account_id:       GP_ACCT_ID,
+    session_date:     date,
+    session_open:     orders[0].ts,
+    session_close:    ts,
+    signal_direction: dir,
+    result:           result,
+    net_pnl:          totalPnl,
+    balance_close:    lastBal,
+    notes:            'exit=GP lot=' + lot.toFixed(2),
+    _lot:             lot,  // internal — used for cycling display
+    accounts:         {label: 'GlobalPrime Live'}
+  };
+}
+
 async function loadGtmoData() {
   var dot = document.getElementById('statusDot');
   var txt = document.getElementById('statusTxt');
@@ -316,25 +371,50 @@ async function loadGtmoData() {
   document.getElementById('gtmoTo').value   = toDate;
 
   try {
-    var allIds = GTMO_ACCT_DEFS.map(function(a){return a.id;});
-    var acctFilter = gtmoAcctId !== 'all'
-      ? '&account_id=eq.' + gtmoAcctId
-      : '&account_id=in.(' + allIds.join(',') + ')';
+    var allIds     = GTMO_ACCT_DEFS.map(function(a){return a.id;});
+    var isGPOnly   = (gtmoAcctId === GP_ACCT_ID);
+    var isAll      = (gtmoAcctId === 'all');
+
+    // Session + order filter — exclude GlobalPrime (no gtmo_sessions for it)
+    var nonGPIds   = GTMO_ACCT_DEFS.filter(function(a){return a.id !== GP_ACCT_ID;}).map(function(a){return a.id;});
+    var acctFilter = isGPOnly
+      ? null  // skip gtmo_sessions fetch entirely
+      : (gtmoAcctId !== 'all'
+          ? '&account_id=eq.' + gtmoAcctId
+          : '&account_id=in.(' + nonGPIds.join(',') + ')');
 
     var dateFilter      = '&session_date=gte.' + fromDate + '&session_date=lte.' + toDate;
     var orderFrom       = fromDate < '2025-12-01' ? fromDate : '2025-12-01';
     var orderDateFilter = '&close_time=gte.' + orderFrom + 'T00:00:00&close_time=lte.' + toDate + 'T23:59:59';
 
-    var res = await Promise.all([
-      sb('gtmo_sessions', 'select=*,accounts(label)&order=session_date,session_open' + acctFilter + dateFilter),
-      sb('gtmo_orders',   'select=*&order=close_time' + acctFilter + orderDateFilter)
-    ]);
+    // Always fetch GP trades when showing GlobalPrime or all accounts
+    var gpTradesFilter = '&account_id=eq.' + GP_ACCT_ID
+      + '&symbol=eq.XAUUSD'
+      + '&ts=gte.' + fromDate + 'T00:00:00'
+      + '&ts=lte.' + toDate + 'T23:59:59';
+
+    var fetchSessions = acctFilter
+      ? sb('gtmo_sessions', 'select=*,accounts(label)&order=session_date,session_open' + acctFilter + dateFilter)
+      : Promise.resolve([]);
+    var fetchOrders = acctFilter
+      ? sb('gtmo_orders', 'select=*&order=close_time' + (isAll ? '&account_id=in.(' + nonGPIds.join(',') + ')' : '&account_id=eq.' + gtmoAcctId) + orderDateFilter)
+      : Promise.resolve([]);
+    var fetchGPTrades = (isGPOnly || isAll)
+      ? sb('trades', 'select=ticket,symbol,direction,lot,pnl,balance,ts,event&order=ts' + gpTradesFilter)
+      : Promise.resolve([]);
+
+    var res = await Promise.all([fetchSessions, fetchOrders, fetchGPTrades]);
+
     gtmoDb.sessions = res[0];
     gtmoDb.orders   = res[1];
 
+    // Build synthetic GP sessions from trades and merge in
+    var gpSessions = buildGPSessions(res[2]);
+    gtmoDb.sessions = gtmoDb.sessions.concat(gpSessions);
+
     dot.className = 'status-dot live';
     txt.textContent = 'Live';
-    st.textContent = gtmoDb.sessions.length + ' sessions · ' + gtmoDb.orders.length + ' orders · ' + fromDate + ' → ' + toDate;
+    st.textContent = gtmoDb.sessions.length + ' sessions · ' + gtmoDb.orders.length + ' orders · ' + res[2].length + ' GP trades · ' + fromDate + ' → ' + toDate;
     renderGtmo();
   } catch(e) {
     dot.className = 'status-dot';
@@ -521,7 +601,8 @@ function renderGtmoOverview() {
   // Per-account cards — 5 accounts in responsive grid
   h += '<div class="accts-grid">';
 
-  GTMO_ACCT_DEFS.forEach(function(acct) {
+  var visibleAccts = gtmoAcctId === 'all' ? GTMO_ACCT_DEFS : GTMO_ACCT_DEFS.filter(function(a){return a.id===gtmoAcctId;});
+  visibleAccts.forEach(function(acct) {
     var ss = sessionsFor(acct.id);
     if(!ss.length) {
       h += '<div class="acct-card' + (gtmoAcctId===acct.id?' selected':'') + '">';
