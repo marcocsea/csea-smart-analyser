@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CSEA Smart Analyser v4.4</title>
+<title>CSEA Smart Analyser v4.5</title>
 <style>
 :root{--bg:#f1f5f9;--bg2:#ffffff;--bg3:#f8fafc;--border:#e2e8f0;--text:#1e293b;--sub:#64748b;--green:#16a34a;--red:#dc2626;--blue:#3b82f6;--gold:#d97706;--cyan:#0891b2;--purple:#7c3aed;--orange:#ea580c}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -108,7 +108,6 @@ tr:hover td{background:#f8fafc}
 .exit-manual{background:rgba(245,158,11,.15);color:var(--gold);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
 .src-badge{background:#dbeafe;color:#1e40af;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px}
 .gtmo-badge{background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px}
-/* GTMO specific */
 .acct-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px}
 .acct-card.selected{border-color:#d97706;box-shadow:0 0 0 2px rgba(217,119,6,.15)}
 .health-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
@@ -138,14 +137,23 @@ tr:hover td{background:#f8fafc}
 .session-result-be{background:rgba(100,116,139,.1);color:var(--sub);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
 .ea-tag{background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700}
 .manual-tag{background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700}
+.shared-tag{background:#f3e8ff;color:#6b21a8;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700}
 .divider{height:1px;background:var(--border);margin:12px 0}
+/* Lot cycling bar */
+.cycle-bar-wrap{margin-top:8px}
+.cycle-label{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:3px}
+.cycle-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden}
+.cycle-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#d97706,#f59e0b);transition:width .6s}
+/* Accounts grid — 5 accounts, responsive */
+.accts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
+@media(max-width:1100px){.accts-grid{grid-template-columns:repeat(2,1fr);}}
 </style>
 </head>
 <body>
 
 <div class="header">
   <div class="logo">CSEA <span>Smart</span> Analyser</div>
-  <div class="badge">v4.4</div>
+  <div class="badge">v4.5</div>
   <div class="mode-switcher">
     <button class="mode-btn active" id="modeCsea" onclick="switchMode('csea')">CSEA</button>
     <button class="mode-btn" id="modeGtmo" onclick="switchMode('gtmo')">GTMO·GTS</button>
@@ -175,9 +183,11 @@ tr:hover td{background:#f8fafc}
     <option value="a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6">4xHub MO Gold</option>
     <option value="c6596cb8-760f-480b-97b5-f4a3954c1b90">GTMO Demo</option>
     <option value="75fb14d6-0f3a-4196-86fc-c93d78f3d1b2">GTS Vantage Demo</option>
+    <option value="0296cef2-c9ed-4fe7-ad5c-d9b0088779a0">Vantage International GTS</option>
+    <option value="42b3b312-1cb6-401b-b94a-9b462df44702">GlobalPrime Live</option>
   </select>
   <span class="lbl">From:</span>
-  <input type="date" id="gtmoFrom" value="2026-03-09">
+  <input type="date" id="gtmoFrom">
   <span class="lbl">To:</span>
   <input type="date" id="gtmoTo">
   <button class="btn-gtmo" onclick="loadGtmoData()">Load &amp; Analyse</button>
@@ -207,7 +217,7 @@ tr:hover td{background:#f8fafc}
 <div class="main" id="mainContent">
   <div class="empty">
     <div style="font-size:36px;margin-bottom:10px">🧠</div>
-    <p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v4.1</p>
+    <p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v4.5</p>
     <p style="color:var(--sub)">Select an account, set clean-start date, then click Load &amp; Analyse</p>
   </div>
 </div>
@@ -227,10 +237,25 @@ var gtmoDb = {sessions:[], orders:[]};
 var gtmoAcctId = 'all';
 var activeGtmoTab = 'overview';
 var currentMode = 'csea';
-// Session log filter state — persists across re-renders
 var sfAcctVal = '', sfResultVal = '', sfDirVal = '', sfTypeVal = '';
 
-// ─── SHARED FETCH ──────────────────────────────────────────────
+// ── ACCOUNT DEFINITIONS ────────────────────────────────────────
+var GTMO_ACCT_DEFS = [
+  {id:'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6', label:'4xHub MO Gold',          emoji:'🟡', type:'GTMO',        isLive:true,  isShared:false},
+  {id:'c6596cb8-760f-480b-97b5-f4a3954c1b90', label:'GTMO Demo',               emoji:'🔵', type:'GTMO',        isLive:false, isShared:false},
+  {id:'75fb14d6-0f3a-4196-86fc-c93d78f3d1b2', label:'GTS Vantage Demo',         emoji:'🟢', type:'GTS',         isLive:false, isShared:false},
+  {id:'0296cef2-c9ed-4fe7-ad5c-d9b0088779a0', label:'Vantage International GTS',emoji:'🔴', type:'GTS',         isLive:true,  isShared:false},
+  {id:'42b3b312-1cb6-401b-b94a-9b462df44702', label:'GlobalPrime Live',          emoji:'⚪', type:'GTMO_MANUAL', isLive:true,  isShared:true,
+   cycleStart:'2026-04-29', cycleStartBalance:3616.96, threshold:298.50, entries:4}
+];
+
+// Lot cycling thresholds
+var GTMO_THRESHOLD = 298.50;
+var GTS_THRESHOLD  = 447.00;
+var GTMO_ENTRIES   = 4;
+var GTS_ENTRIES    = 4;
+
+// ── SHARED FETCH ────────────────────────────────────────────────
 async function sb(table, params) {
   var PAGE = 1000, all = [], from = 0;
   while(true) {
@@ -246,7 +271,17 @@ async function sb(table, params) {
   return all;
 }
 
-// ─── MODE SWITCH ───────────────────────────────────────────────
+// ── DATE HELPERS ────────────────────────────────────────────────
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+function sevenDaysAgoStr() {
+  var d = new Date();
+  d.setDate(d.getDate() - 7);
+  return d.toISOString().slice(0,10);
+}
+
+// ── MODE SWITCH ─────────────────────────────────────────────────
 function switchMode(mode) {
   currentMode = mode;
   document.getElementById('modeCsea').className = 'mode-btn' + (mode==='csea'?' active':'');
@@ -262,11 +297,11 @@ function switchMode(mode) {
     }
   } else {
     if(db.posData.length) render();
-    else document.getElementById('mainContent').innerHTML = '<div class="empty"><div style="font-size:36px;margin-bottom:10px">🧠</div><p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v4.1</p><p style="color:var(--sub)">Select an account, set clean-start date, then click Load &amp; Analyse</p></div>';
+    else document.getElementById('mainContent').innerHTML = '<div class="empty"><div style="font-size:36px;margin-bottom:10px">🧠</div><p style="color:#1e293b;font-size:15px;font-weight:700;margin-bottom:6px">CSEA Smart Analyser v4.5</p><p style="color:var(--sub)">Select an account, set clean-start date, then click Load &amp; Analyse</p></div>';
   }
 }
 
-// ─── GTMO DATA LOAD ────────────────────────────────────────────
+// ── GTMO DATA LOAD ──────────────────────────────────────────────
 async function loadGtmoData() {
   var dot = document.getElementById('statusDot');
   var txt = document.getElementById('statusTxt');
@@ -275,24 +310,19 @@ async function loadGtmoData() {
   st.textContent = 'Fetching sessions & orders...';
   gtmoAcctId = document.getElementById('gtmoAcctSelect').value;
 
-  // Read date range
-  var fromDate = document.getElementById('gtmoFrom').value || '2026-01-01';
-  var toDate   = document.getElementById('gtmoTo').value;
-  // Default To = today
-  if(!toDate) {
-    var now = new Date();
-    toDate = now.toISOString().slice(0,10);
-    document.getElementById('gtmoTo').value = toDate;
-  }
+  var fromDate = document.getElementById('gtmoFrom').value || sevenDaysAgoStr();
+  var toDate   = document.getElementById('gtmoTo').value   || todayStr();
+  document.getElementById('gtmoFrom').value = fromDate;
+  document.getElementById('gtmoTo').value   = toDate;
 
   try {
+    var allIds = GTMO_ACCT_DEFS.map(function(a){return a.id;});
     var acctFilter = gtmoAcctId !== 'all'
       ? '&account_id=eq.' + gtmoAcctId
-      : '&account_id=in.(a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6,c6596cb8-760f-480b-97b5-f4a3954c1b90,75fb14d6-0f3a-4196-86fc-c93d78f3d1b2)';
+      : '&account_id=in.(' + allIds.join(',') + ')';
 
-    var dateFilter = '&session_date=gte.' + fromDate + '&session_date=lte.' + toDate;
-    // Orders: use earlier start date so manual trades (magic=0) from before GTMO are always available for badge logic
-    var orderFrom = fromDate < '2025-12-01' ? fromDate : '2025-12-01';
+    var dateFilter      = '&session_date=gte.' + fromDate + '&session_date=lte.' + toDate;
+    var orderFrom       = fromDate < '2025-12-01' ? fromDate : '2025-12-01';
     var orderDateFilter = '&close_time=gte.' + orderFrom + 'T00:00:00&close_time=lte.' + toDate + 'T23:59:59';
 
     var res = await Promise.all([
@@ -313,20 +343,17 @@ async function loadGtmoData() {
   }
 }
 
-// ─── GTMO TAB ─────────────────────────────────────────────────
+// ── GTMO TAB ────────────────────────────────────────────────────
 function setGtmoTab(id, btn) {
   activeGtmoTab = id;
-  // Reset session filters when switching tabs
   if(id !== 'sessions') { sfAcctVal = ''; sfResultVal = ''; sfDirVal = ''; sfTypeVal = ''; }
-  document.querySelectorAll('#gtmoTabBar .tab').forEach(function(t){
-    t.classList.remove('active','gtmo-tab');
-  });
+  document.querySelectorAll('#gtmoTabBar .tab').forEach(function(t){ t.classList.remove('active','gtmo-tab'); });
   if(btn) { btn.classList.add('active','gtmo-tab'); }
   else {
     var map = ['overview','runners','sessions','intelligence'];
     var idx = map.indexOf(id);
     var tabs = document.querySelectorAll('#gtmoTabBar .tab');
-    if(idx >= 0) { tabs[idx].classList.add('active','gtmo-tab'); }
+    if(idx >= 0) tabs[idx].classList.add('active','gtmo-tab');
   }
   renderGtmo();
 }
@@ -334,30 +361,26 @@ function setGtmoTab(id, btn) {
 function renderGtmo() {
   if(!gtmoDb.sessions.length) return;
   var c = document.getElementById('mainContent');
-  if(activeGtmoTab === 'overview')      c.innerHTML = renderGtmoOverview();
-  else if(activeGtmoTab === 'runners')  c.innerHTML = renderGtmoRunners();
-  else if(activeGtmoTab === 'sessions') c.innerHTML = renderGtmoSessions();
+  if(activeGtmoTab === 'overview')          c.innerHTML = renderGtmoOverview();
+  else if(activeGtmoTab === 'runners')      c.innerHTML = renderGtmoRunners();
+  else if(activeGtmoTab === 'sessions')     c.innerHTML = renderGtmoSessions();
   else if(activeGtmoTab === 'intelligence') c.innerHTML = renderGtmoIntelligence();
 }
 
-// ─── GTMO HELPERS ─────────────────────────────────────────────
+// ── GTMO HELPERS ────────────────────────────────────────────────
 function fmtPnl(v) { var n = parseFloat(v||0); return (n>=0?'+':'') + n.toFixed(2); }
 function fmtPct(v) { return v.toFixed(1) + '%'; }
 function siIcon(s) { return s==='ok'?'✓':s==='warn'?'⚠':'✗'; }
 function siCls(s)  { return s==='ok'?'ci-ok':s==='warn'?'ci-warn':'ci-fail'; }
 
-function getGtmoAcctLabel(id) {
-  var map = {
-    'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6': '4xHub MO Gold',
-    'c6596cb8-760f-480b-97b5-f4a3954c1b90': 'GTMO Demo',
-    '75fb14d6-0f3a-4196-86fc-c93d78f3d1b2': 'GTS Vantage Demo'
-  };
-  return map[id] || id;
+function getAcctDef(id) {
+  for(var i=0;i<GTMO_ACCT_DEFS.length;i++) { if(GTMO_ACCT_DEFS[i].id===id) return GTMO_ACCT_DEFS[i]; }
+  return {id:id, label:id, emoji:'⚫', type:'GTMO', isLive:false, isShared:false};
 }
 
 function getGtmoAcctIds() {
   if(gtmoAcctId !== 'all') return [gtmoAcctId];
-  return ['a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6','c6596cb8-760f-480b-97b5-f4a3954c1b90','75fb14d6-0f3a-4196-86fc-c93d78f3d1b2'];
+  return GTMO_ACCT_DEFS.map(function(a){return a.id;});
 }
 
 function sessionsFor(aId) {
@@ -370,6 +393,56 @@ function ordersFor(aId) {
   return gtmoDb.orders.filter(function(o){ return o.account_id === aId; });
 }
 
+// ── LOT CYCLING CALC ────────────────────────────────────────────
+function calcCycleLevel(balance, threshold, numEntries) {
+  var totalVirtual = Math.floor(balance / threshold);
+  if(totalVirtual < numEntries) {
+    return {unlockedEntries: totalVirtual, baseLot: 0.01, cycle: 0, nextThreshold: threshold * numEntries, progress: (balance / (threshold * numEntries)) * 100};
+  }
+  var extraVirtual = totalVirtual - numEntries;
+  var fullCycles   = Math.floor(extraVirtual / numEntries);
+  var remainder    = extraVirtual % numEntries;
+  var baseLot      = 0.01 + (fullCycles * 0.01);
+  var currentFloor = (numEntries + (fullCycles * numEntries) + remainder) * threshold;
+  var nextFloor    = (numEntries + ((fullCycles+1) * numEntries)) * threshold;
+  var progress     = ((balance - currentFloor) / (nextFloor - currentFloor)) * 100;
+  return {unlockedEntries: numEntries, baseLot: baseLot, cycle: fullCycles+1, nextThreshold: nextFloor, progress: Math.min(100, Math.max(0, progress)), remainder: remainder};
+}
+
+// ── SESSION P&L SPARKLINE ───────────────────────────────────────
+function buildSessionSparkline(sessions, width, height) {
+  var sorted = sessions.slice().sort(function(a,b){ return a.session_date > b.session_date ? 1 : -1; });
+  if(sorted.length < 2) return '';
+  // Build cumulative P&L line
+  var points = [];
+  var cum = 0;
+  sorted.forEach(function(s) {
+    cum += parseFloat(s.net_pnl || 0);
+    points.push(cum);
+  });
+  var minV = Math.min.apply(null, points);
+  var maxV = Math.max.apply(null, points);
+  var rng  = maxV - minV || 1;
+  var w = width || 220, ht = height || 50;
+  var pts = points.map(function(v, i) {
+    var x = i / (points.length - 1) * w;
+    var y = ht - ((v - minV) / rng * (ht - 6) + 3);
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  var lastVal  = points[points.length - 1];
+  var firstVal = points[0];
+  var lineCol  = lastVal >= firstVal ? '#16a34a' : '#dc2626';
+  var svg = '<svg width="' + w + '" height="' + ht + '" style="display:block;margin:8px 0" viewBox="0 0 ' + w + ' ' + ht + '">';
+  svg += '<polyline points="' + pts + '" fill="none" stroke="' + lineCol + '" stroke-width="1.5" stroke-linejoin="round"/>';
+  // Zero line
+  if(minV < 0 && maxV > 0) {
+    var zeroY = ht - ((0 - minV) / rng * (ht - 6) + 3);
+    svg += '<line x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + w + '" y2="' + zeroY.toFixed(1) + '" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"/>';
+  }
+  svg += '</svg>';
+  return svg;
+}
+
 function getGtmoKpis(sessions) {
   var wins   = sessions.filter(function(s){ return s.result === 'WIN'; });
   var losses = sessions.filter(function(s){ return s.result === 'LOSS'; });
@@ -379,7 +452,6 @@ function getGtmoKpis(sessions) {
   var wr     = sessions.length ? wins.length / sessions.length * 100 : 0;
   var rr     = avgL ? Math.abs(avgW / avgL) : 0;
 
-  // streak
   var streak = 0, streakType = '';
   var sorted = sessions.slice().sort(function(a,b){ return a.session_date > b.session_date ? 1 : -1; });
   if(sorted.length) {
@@ -391,7 +463,6 @@ function getGtmoKpis(sessions) {
     }
   }
 
-  // drawdown from last balance_close
   var withBal = sessions.filter(function(s){ return s.balance_close && parseFloat(s.balance_close) > 0; });
   var peak = 0, dd = 0;
   withBal.forEach(function(s){
@@ -405,66 +476,34 @@ function getGtmoKpis(sessions) {
 }
 
 function getRunnerStats(orders) {
-  // Parse comment tags to extract runner levels
-  // Shield (S) = initial cluster, Generator (G) = runner, Ex = partial runner level
-  var stats = {
-    totalSessions: 0,
-    shield: {tp:0, sl:0},
-    generator: {tp:0, sl:0},
-    addon: {fired:0, sl:0, pnl:0},
-    runners: {} // E1..E8 tp/sl counts
-  };
-  for(var i = 1; i <= 8; i++) {
-    stats.runners['E'+i] = {tp:0, sl:0, pnl:0};
-  }
-
+  var stats = { totalSessions:0, shield:{tp:0,sl:0}, generator:{tp:0,sl:0}, addon:{fired:0,sl:0,pnl:0}, runners:{} };
+  for(var i=1;i<=8;i++) stats.runners['E'+i]={tp:0,sl:0,pnl:0};
   orders.forEach(function(o) {
     var c = (o.comment || '').trim();
     if(!c) return;
-
-    // Shield base
     if(c === 'GTMO-S[tp]') { stats.shield.tp++; }
     else if(c === 'GTMO-S[sl]') { stats.shield.sl++; }
-
-    // Generator full
     else if(c === 'GTMO-G[tp]') { stats.generator.tp++; }
     else if(c === 'GTMO-G[sl]') { stats.generator.sl++; }
-
-    // Add-on
     else if(c.indexOf('GTMO-ADDON') === 0) {
       stats.addon.fired++;
       if(c.indexOf('[sl]') > -1) stats.addon.sl++;
       stats.addon.pnl += parseFloat(o.profit||0);
     }
-
-    // Runner partials E1-E8
-    for(var lvl = 1; lvl <= 8; lvl++) {
-      var key = 'E' + lvl;
-      if(c === 'GTMO-S-' + key + '[tp]' || c === 'GTMO-G-' + key + '[tp]') {
-        stats.runners[key].tp++;
-        stats.runners[key].pnl += parseFloat(o.profit||0);
-      } else if(c === 'GTMO-S-' + key + '[sl]' || c === 'GTMO-G-' + key + '[sl]') {
-        stats.runners[key].sl++;
-        stats.runners[key].pnl += parseFloat(o.profit||0);
-      }
+    for(var lvl=1;lvl<=8;lvl++) {
+      var key='E'+lvl;
+      if(c==='GTMO-S-'+key+'[tp]'||c==='GTMO-G-'+key+'[tp]') { stats.runners[key].tp++; stats.runners[key].pnl+=parseFloat(o.profit||0); }
+      else if(c==='GTMO-S-'+key+'[sl]'||c==='GTMO-G-'+key+'[sl]') { stats.runners[key].sl++; stats.runners[key].pnl+=parseFloat(o.profit||0); }
     }
   });
-
   return stats;
 }
 
-function getEquityCurve(sessions, acctId) {
-  var sorted = sessionsFor(acctId).filter(function(s){ return s.balance_close && parseFloat(s.balance_close) > 0; })
-    .sort(function(a,b){ return a.session_date > b.session_date ? 1 : -1; });
-  if(!sorted.length) return [];
-  return sorted.map(function(s){ return { date: s.session_date, bal: parseFloat(s.balance_close) }; });
-}
-
-// ─── GTMO OVERVIEW ────────────────────────────────────────────
+// ── GTMO OVERVIEW ───────────────────────────────────────────────
 function renderGtmoOverview() {
-  var acctIds = getGtmoAcctIds();
   var allSessions = gtmoDb.sessions;
-  var globalKpis = getGtmoKpis(allSessions);
+  var globalKpis  = getGtmoKpis(allSessions);
+  var acctIds     = getGtmoAcctIds();
 
   // Top KPI row
   var h = '<div class="grid5">';
@@ -472,95 +511,96 @@ function renderGtmoOverview() {
   h += '<div class="card"><div class="card-title">Win Rate</div><div class="kpi-val ' + (globalKpis.wr>=55?'green':globalKpis.wr>=40?'gold':'red') + '">' + globalKpis.wr.toFixed(1) + '%</div><div class="kpi-sub">' + globalKpis.wins + 'W / ' + globalKpis.losses + 'L</div></div>';
   h += '<div class="card"><div class="card-title">Net P&L</div><div class="kpi-val ' + (globalKpis.totalPnl>=0?'green':'red') + '">' + fmtPnl(globalKpis.totalPnl) + '</div><div class="kpi-sub">All accounts combined</div></div>';
   h += '<div class="card"><div class="card-title">Risk:Reward</div><div class="kpi-val ' + (globalKpis.rr>=1?'green':'red') + '">' + (globalKpis.rr||0).toFixed(2) + '</div><div class="kpi-sub">Avg win ' + fmtPnl(globalKpis.avgWin) + '</div></div>';
-
-  // Current streak
-  var streakCol = globalKpis.streakType === 'WIN' ? 'green' : (globalKpis.streakType === 'LOSS' ? 'red' : 'gold');
-  h += '<div class="card"><div class="card-title">Current Streak</div><div class="kpi-val ' + streakCol + '">' + (globalKpis.streakType === 'WIN' ? '+' : globalKpis.streakType === 'LOSS' ? '-' : '') + globalKpis.streak + '</div><div class="kpi-sub">' + (globalKpis.streakType || '—') + ' streak</div></div>';
+  var streakCol = globalKpis.streakType==='WIN'?'green':(globalKpis.streakType==='LOSS'?'red':'gold');
+  h += '<div class="card"><div class="card-title">Current Streak</div><div class="kpi-val ' + streakCol + '">' + (globalKpis.streakType==='WIN'?'+':globalKpis.streakType==='LOSS'?'-':'') + globalKpis.streak + '</div><div class="kpi-sub">' + (globalKpis.streakType||'—') + ' streak</div></div>';
   h += '</div>';
 
-  // Per-account cards
-  h += '<div class="grid3">';
-  var acctDefs = [
-    {id:'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6', label:'4xHub MO Gold', emoji:'🟡'},
-    {id:'c6596cb8-760f-480b-97b5-f4a3954c1b90', label:'GTMO Demo', emoji:'🔵'},
-    {id:'75fb14d6-0f3a-4196-86fc-c93d78f3d1b2', label:'GTS Vantage Demo', emoji:'🟢'}
-  ];
+  // Per-account cards — 5 accounts in responsive grid
+  h += '<div class="accts-grid">';
 
-  acctDefs.forEach(function(acct) {
+  GTMO_ACCT_DEFS.forEach(function(acct) {
     var ss = sessionsFor(acct.id);
-    if(!ss.length) { h += '<div class="card" style="opacity:.5"><div class="card-title">' + acct.emoji + ' ' + acct.label + '</div><div class="kpi-sub" style="padding:20px 0;text-align:center">No data loaded</div></div>'; return; }
+    if(!ss.length) {
+      h += '<div class="acct-card' + (gtmoAcctId===acct.id?' selected':'') + '">';
+      h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">';
+      h += '<div><div style="font-size:13px;font-weight:700;color:#1e293b">' + acct.emoji + ' ' + acct.label + '</div>';
+      if(acct.isShared) h += '<div style="margin-top:3px"><span class="shared-tag">Shared Account</span></div>';
+      h += '</div></div>';
+      h += '<div class="kpi-sub" style="padding:20px 0;text-align:center">No data in selected range</div>';
+      h += '</div>';
+      return;
+    }
+
     var kpis = getGtmoKpis(ss);
-    var os = ordersFor(acct.id);
+    var os   = ordersFor(acct.id);
     var runnerStats = getRunnerStats(os);
 
-    // Health signal
+    // Health
     var health = 'green', healthLabel = 'Healthy';
-    if(kpis.wr < 40 || kpis.rr < 0.7 || kpis.maxDd > 30) { health = 'red'; healthLabel = 'Stress'; }
-    else if(kpis.wr < 55 || kpis.rr < 1 || kpis.maxDd > 15) { health = 'gold'; healthLabel = 'Caution'; }
+    if(kpis.wr<40||kpis.rr<0.7||kpis.maxDd>30){health='red';healthLabel='Stress';}
+    else if(kpis.wr<55||kpis.rr<1||kpis.maxDd>15){health='gold';healthLabel='Caution';}
 
-    // Last 10 vs previous 10
-    var sorted10 = ss.slice().sort(function(a,b){ return a.session_date > b.session_date ? 1:-1; });
-    var last10 = sorted10.slice(-10), prev10 = sorted10.slice(-20,-10);
+    // Trend
+    var sorted10  = ss.slice().sort(function(a,b){return a.session_date>b.session_date?1:-1;});
+    var last10    = sorted10.slice(-10), prev10 = sorted10.slice(-20,-10);
     var last10Pnl = last10.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
     var prev10Pnl = prev10.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
-    var trendDir = prev10.length ? (last10Pnl > prev10Pnl ? '↑' : '↓') : '';
-    var trendCol = prev10.length ? (last10Pnl > prev10Pnl ? 'var(--green)' : 'var(--red)') : 'var(--sub)';
+    var trendDir  = prev10.length ? (last10Pnl>prev10Pnl?'↑':'↓') : '';
+    var trendCol  = prev10.length ? (last10Pnl>prev10Pnl?'var(--green)':'var(--red)') : 'var(--sub)';
 
     // Latest balance
-    var withBal = ss.filter(function(s){ return s.balance_close && parseFloat(s.balance_close) > 0; });
+    var withBal  = ss.filter(function(s){return s.balance_close&&parseFloat(s.balance_close)>0;});
     var latestBal = withBal.length ? parseFloat(withBal[withBal.length-1].balance_close) : null;
 
-    // EA vs Manual split (4xHub only)
+    // EA/Manual split for 4xHub
     var eaManualHtml = '';
     if(acct.id === 'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6') {
-      var eaOrders  = os.filter(function(o){ return parseInt(o.magic||'0') !== 0; });
-      var manOrders = os.filter(function(o){ return parseInt(o.magic||'0') === 0; });
+      var eaOrders  = os.filter(function(o){return parseInt(o.magic||'0')!==0;});
+      var manOrders = os.filter(function(o){return parseInt(o.magic||'0')===0;});
       var eaPnl  = eaOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
       var manPnl = manOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
       eaManualHtml = '<div class="divider"></div><div style="display:flex;gap:8px">';
-      eaManualHtml += '<div class="mini-kpi" style="flex:1"><div class="mini-kpi-val ' + (eaPnl>=0?'green':'red') + '">' + fmtPnl(eaPnl) + '</div><div class="mini-kpi-lbl"><span class="ea-tag">EA</span> ' + eaOrders.length + ' orders</div></div>';
-      eaManualHtml += '<div class="mini-kpi" style="flex:1"><div class="mini-kpi-val ' + (manPnl>=0?'green':'red') + '">' + fmtPnl(manPnl) + '</div><div class="mini-kpi-lbl"><span class="manual-tag">Manual</span> ' + manOrders.length + ' orders</div></div>';
+      eaManualHtml += '<div class="mini-kpi" style="flex:1"><div class="mini-kpi-val '+(eaPnl>=0?'green':'red')+'">' + fmtPnl(eaPnl) + '</div><div class="mini-kpi-lbl"><span class="ea-tag">EA</span> ' + eaOrders.length + ' orders</div></div>';
+      eaManualHtml += '<div class="mini-kpi" style="flex:1"><div class="mini-kpi-val '+(manPnl>=0?'green':'red')+'">' + fmtPnl(manPnl) + '</div><div class="mini-kpi-lbl"><span class="manual-tag">Manual</span> ' + manOrders.length + ' orders</div></div>';
       eaManualHtml += '</div>';
     }
 
-    // Mini equity sparkline
-    var curve = getEquityCurve(ss, acct.id);
-    var sparkHtml = '';
-    if(curve.length >= 2) {
-      var minB = Math.min.apply(null, curve.map(function(p){return p.bal;}));
-      var maxB = Math.max.apply(null, curve.map(function(p){return p.bal;}));
-      var rng = maxB - minB || 1;
-      var w = 220, ht = 50;
-      var pts = curve.map(function(p,i){
-        var x = i / (curve.length-1) * w;
-        var y = ht - ((p.bal - minB) / rng * (ht-6) + 3);
-        return x.toFixed(1) + ',' + y.toFixed(1);
-      }).join(' ');
-      var lastBal = curve[curve.length-1].bal;
-      var firstBal = curve[0].bal;
-      var lineCol = lastBal >= firstBal ? '#16a34a' : '#dc2626';
-      sparkHtml = '<svg width="' + w + '" height="' + ht + '" style="display:block;margin:8px 0" viewBox="0 0 ' + w + ' ' + ht + '">';
-      sparkHtml += '<polyline points="' + pts + '" fill="none" stroke="' + lineCol + '" stroke-width="1.5" stroke-linejoin="round"/>';
-      sparkHtml += '</svg>';
+    // Shared account note for GlobalPrime
+    var sharedNote = '';
+    if(acct.isShared) {
+      sharedNote = '<div style="background:#f3e8ff;border:1px solid #e9d5ff;border-radius:6px;padding:8px;margin-top:8px;font-size:10px;color:#6b21a8">⚠ Shared account — balance includes POS EA &amp; manual forex. Lot level reflects full account balance. P&L below = AurumAI Gold sessions only.</div>';
     }
 
-    // Runner reach summary (E1 through E4 most relevant)
+    // Session P&L sparkline (cumulative wins/losses line — NOT balance)
+    var sparkHtml = buildSessionSparkline(ss, 220, 50);
+
+    // Lot cycling progress bar
+    var cycleHtml = '';
+    var threshold = acct.type === 'GTS' ? GTS_THRESHOLD : GTMO_THRESHOLD;
+    var numEntries = acct.type === 'GTS' ? GTS_ENTRIES : GTMO_ENTRIES;
+    if(latestBal) {
+      var cl = calcCycleLevel(latestBal, threshold, numEntries);
+      var lotLabel = cl.cycle > 0 ? 'Cycle ' + cl.cycle + ' — ' + cl.baseLot.toFixed(2) + ' lots base' : cl.unlockedEntries + '/' + numEntries + ' entries unlocked';
+      var nextLabel = cl.cycle > 0 ? 'Next cycle at £' + cl.nextThreshold.toFixed(2) : 'Full unlock at £' + cl.nextThreshold.toFixed(2);
+      cycleHtml = '<div class="cycle-bar-wrap">';
+      cycleHtml += '<div class="cycle-label"><span>' + lotLabel + '</span><span>' + nextLabel + '</span></div>';
+      cycleHtml += '<div class="cycle-bar"><div class="cycle-bar-fill" style="width:' + cl.progress.toFixed(1) + '%"></div></div>';
+      cycleHtml += '</div>';
+    }
+
+    // Runner reach summary
     var runnerSummary = '';
     var totalG = runnerStats.generator.tp + runnerStats.generator.sl + runnerStats.shield.tp + runnerStats.shield.sl;
     if(totalG > 0) {
-      var e1Total = runnerStats.runners['E1'].tp + runnerStats.runners['E1'].sl;
-      var e1Pct = e1Total > 0 ? Math.round(runnerStats.runners['E1'].tp / e1Total * 100) : 0;
-      var e4Total = runnerStats.runners['E4'].tp + runnerStats.runners['E4'].sl;
-      var e4Pct = e4Total > 0 ? Math.round(runnerStats.runners['E4'].tp / e4Total * 100) : 0;
       runnerSummary = '<div class="divider"></div><div style="font-size:10px;font-weight:700;color:var(--sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Runner Reach</div>';
       runnerSummary += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
-      for(var lvl = 1; lvl <= 6; lvl++) {
-        var rKey = 'E'+lvl;
-        var rTotal = runnerStats.runners[rKey].tp + runnerStats.runners[rKey].sl;
-        if(rTotal === 0 && lvl > 4) continue;
-        var rPct = rTotal > 0 ? Math.round(runnerStats.runners[rKey].tp / rTotal * 100) : 0;
-        var rCol = rPct >= 60 ? 'var(--green)' : rPct >= 35 ? 'var(--gold)' : 'var(--red)';
-        runnerSummary += '<div style="text-align:center;min-width:32px"><div style="font-size:14px;font-weight:800;color:' + rCol + '">' + (rTotal?rPct+'%':'—') + '</div><div style="font-size:9px;color:var(--sub)">' + rKey + '</div></div>';
+      for(var lvl=1;lvl<=6;lvl++) {
+        var rKey='E'+lvl;
+        var rTotal=runnerStats.runners[rKey].tp+runnerStats.runners[rKey].sl;
+        if(rTotal===0&&lvl>4) continue;
+        var rPct=rTotal>0?Math.round(runnerStats.runners[rKey].tp/rTotal*100):0;
+        var rCol=rPct>=60?'var(--green)':rPct>=35?'var(--gold)':'var(--red)';
+        runnerSummary+='<div style="text-align:center;min-width:32px"><div style="font-size:14px;font-weight:800;color:'+rCol+'">'+(rTotal?rPct+'%':'—')+'</div><div style="font-size:9px;color:var(--sub)">'+rKey+'</div></div>';
       }
       runnerSummary += '</div>';
     }
@@ -568,12 +608,15 @@ function renderGtmoOverview() {
     var selected = (gtmoAcctId === acct.id) ? ' selected' : '';
     h += '<div class="acct-card' + selected + '">';
     h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">';
-    h += '<div><div style="font-size:13px;font-weight:700;color:#1e293b">' + acct.emoji + ' ' + acct.label + '</div>';
-    h += (latestBal ? '<div style="font-size:11px;color:var(--sub)">Balance: <strong style="color:#1e293b">£' + latestBal.toFixed(2) + '</strong></div>' : '') + '</div>';
-    h += '<span class="health-badge health-' + health + '">' + (health==='green'?'✓':health==='gold'?'⚠':'⚠') + ' ' + healthLabel + '</span>';
+    h += '<div>';
+    h += '<div style="font-size:13px;font-weight:700;color:#1e293b">' + acct.emoji + ' ' + acct.label + '</div>';
+    if(latestBal) h += '<div style="font-size:11px;color:var(--sub)">Balance: <strong style="color:#1e293b">£' + latestBal.toFixed(2) + '</strong></div>';
+    if(acct.isShared) h += '<div style="margin-top:3px"><span class="shared-tag">Shared Account</span></div>';
+    h += '</div>';
+    h += '<span class="health-badge health-' + health + '">' + (health==='green'?'✓':'⚠') + ' ' + healthLabel + '</span>';
     h += '</div>';
 
-    h += '<div style="display:flex;gap:12px;margin-bottom:8px">';
+    h += '<div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap">';
     h += '<div><div style="font-size:18px;font-weight:800;color:' + (kpis.totalPnl>=0?'var(--green)':'var(--red)') + '">' + fmtPnl(kpis.totalPnl) + '</div><div style="font-size:10px;color:var(--sub)">Net P&L</div></div>';
     h += '<div><div style="font-size:18px;font-weight:800;color:' + (kpis.wr>=55?'var(--green)':kpis.wr>=40?'var(--gold)':'var(--red)') + '">' + kpis.wr.toFixed(0) + '%</div><div style="font-size:10px;color:var(--sub)">Win Rate</div></div>';
     h += '<div><div style="font-size:18px;font-weight:800;color:' + (kpis.rr>=1?'var(--green)':'var(--red)') + '">' + kpis.rr.toFixed(2) + '</div><div style="font-size:10px;color:var(--sub)">R:R</div></div>';
@@ -582,26 +625,20 @@ function renderGtmoOverview() {
     h += '</div>';
 
     h += sparkHtml;
+    h += cycleHtml;
     h += eaManualHtml;
+    h += sharedNote;
     h += runnerSummary;
     h += '</div>';
   });
-  h += '</div>';
 
+  h += '</div>';
   return h;
 }
 
-// ─── GTMO RUNNER ANALYSIS ─────────────────────────────────────
+// ── GTMO RUNNER ANALYSIS ────────────────────────────────────────
 function renderGtmoRunners() {
-  var acctDefs = [
-    {id:'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6', label:'4xHub MO Gold'},
-    {id:'c6596cb8-760f-480b-97b5-f4a3954c1b90', label:'GTMO Demo'},
-    {id:'75fb14d6-0f3a-4196-86fc-c93d78f3d1b2', label:'GTS Vantage Demo'}
-  ];
-
-  // If single account selected, show only that
-  var showAccts = gtmoAcctId === 'all' ? acctDefs : acctDefs.filter(function(a){ return a.id === gtmoAcctId; });
-
+  var showAccts = gtmoAcctId === 'all' ? GTMO_ACCT_DEFS : GTMO_ACCT_DEFS.filter(function(a){return a.id===gtmoAcctId;});
   var h = '';
 
   showAccts.forEach(function(acct) {
@@ -617,644 +654,348 @@ function renderGtmoRunners() {
     h += '<div style="font-size:11px;color:var(--sub)">' + os.length + ' orders analysed</div>';
     h += '</div>';
 
-    // Waterfall chart showing probability drop-off E1 → E8
     var levels = ['E1','E2','E3','E4','E5','E6','E7','E8'];
-    var maxTP = Math.max.apply(null, levels.map(function(k){ return rs.runners[k].tp; }).concat([1]));
-
     h += '<div class="grid2">';
-    // Waterfall bars
     h += '<div>';
     h += '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Hit Rate by Runner Level</div>';
     levels.forEach(function(k) {
-      var tp = rs.runners[k].tp, sl = rs.runners[k].sl;
-      var total = tp + sl;
-      if(total === 0) { h += '<div class="runner-row"><div class="runner-label">' + k + '</div><div class="runner-bar-wrap"><div style="font-size:11px;color:#cbd5e1">— no data</div></div></div>'; return; }
-      var pct = Math.round(tp / total * 100);
-      var col = pct >= 60 ? 'var(--green)' : pct >= 35 ? 'var(--gold)' : 'var(--red)';
-      var barW = Math.max(4, pct);
-      var pnlSum = rs.runners[k].pnl;
-      h += '<div class="runner-row">';
-      h += '<div class="runner-label">' + k + '</div>';
-      h += '<div class="runner-bar-wrap">';
-      h += '<div class="runner-bar" style="width:' + barW + '%;background:' + col + '">' + (barW > 20 ? pct + '%' : '') + '</div>';
-      h += '<div class="runner-stats">' + pct + '% hit · ' + tp + 'tp / ' + sl + 'sl · P&L ' + fmtPnl(pnlSum) + '</div>';
-      h += '</div></div>';
+      var tp=rs.runners[k].tp, sl=rs.runners[k].sl, total=tp+sl;
+      if(total===0){h+='<div class="runner-row"><div class="runner-label">'+k+'</div><div class="runner-bar-wrap"><div style="font-size:11px;color:#cbd5e1">— no data</div></div></div>';return;}
+      var pct=Math.round(tp/total*100);
+      var col=pct>=60?'var(--green)':pct>=35?'var(--gold)':'var(--red)';
+      var barW=Math.max(4,pct);
+      h+='<div class="runner-row"><div class="runner-label">'+k+'</div><div class="runner-bar-wrap">';
+      h+='<div class="runner-bar" style="width:'+barW+'%;background:'+col+'">'+(barW>20?pct+'%':'')+'</div>';
+      h+='<div class="runner-stats">'+pct+'% hit · '+tp+'tp / '+sl+'sl · P&L '+fmtPnl(rs.runners[k].pnl)+'</div>';
+      h+='</div></div>';
     });
     h += '</div>';
 
-    // Right side: summary stats + add-on analysis
     h += '<div>';
     h += '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Key Statistics</div>';
-
-    // Generator analysis
-    var gTotal = rs.generator.tp + rs.generator.sl;
-    var gPct = gTotal ? Math.round(rs.generator.tp / gTotal * 100) : 0;
-    var shTotal = rs.shield.tp + rs.shield.sl;
-    var shPct = shTotal ? Math.round(rs.shield.tp / shTotal * 100) : 0;
-
+    var gTotal=rs.generator.tp+rs.generator.sl, gPct=gTotal?Math.round(rs.generator.tp/gTotal*100):0;
+    var shTotal=rs.shield.tp+rs.shield.sl, shPct=shTotal?Math.round(rs.shield.tp/shTotal*100):0;
     h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">';
-    h += '<div class="mini-kpi"><div class="mini-kpi-val ' + (gPct>=50?'green':'red') + '">' + (gTotal?gPct+'%':'—') + '</div><div class="mini-kpi-lbl">Generator Full TP<br><span style="font-size:10px">' + rs.generator.tp + 'tp / ' + rs.generator.sl + 'sl</span></div></div>';
-    h += '<div class="mini-kpi"><div class="mini-kpi-val ' + (shPct>=50?'green':'red') + '">' + (shTotal?shPct+'%':'—') + '</div><div class="mini-kpi-lbl">Shield TP Rate<br><span style="font-size:10px">' + rs.shield.tp + 'tp / ' + rs.shield.sl + 'sl</span></div></div>';
+    h += '<div class="mini-kpi"><div class="mini-kpi-val '+(gPct>=50?'green':'red')+'">'+(gTotal?gPct+'%':'—')+'</div><div class="mini-kpi-lbl">Generator Full TP<br><span style="font-size:10px">'+rs.generator.tp+'tp / '+rs.generator.sl+'sl</span></div></div>';
+    h += '<div class="mini-kpi"><div class="mini-kpi-val '+(shPct>=50?'green':'red')+'">'+(shTotal?shPct+'%':'—')+'</div><div class="mini-kpi-lbl">Shield TP Rate<br><span style="font-size:10px">'+rs.shield.tp+'tp / '+rs.shield.sl+'sl</span></div></div>';
     h += '</div>';
 
-    // Add-on analysis
     h += '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-bottom:12px">';
     h += '<div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px">⚡ Add-On Trades</div>';
-    if(rs.addon.fired > 0) {
-      var addonSLPct = Math.round(rs.addon.sl / rs.addon.fired * 100);
-      var addonVerdict = addonSLPct >= 80 ? '🔴 Mostly SL — review sizing' : addonSLPct >= 50 ? '🟡 Mixed results' : '🟢 Performing';
-      h += '<div style="font-size:12px;color:#78350f">' + addonVerdict + '</div>';
-      h += '<div style="font-size:11px;color:#92400e;margin-top:4px">Fired: <strong>' + rs.addon.fired + '</strong> · SL: <strong>' + rs.addon.sl + ' (' + addonSLPct + '%)</strong> · Net P&L: <strong style="color:' + (rs.addon.pnl>=0?'#15803d':'#b91c1c') + '">' + fmtPnl(rs.addon.pnl) + '</strong></div>';
+    if(rs.addon.fired>0){
+      var addonSLPct=Math.round(rs.addon.sl/rs.addon.fired*100);
+      var addonVerdict=addonSLPct>=80?'🔴 Mostly SL — review sizing':addonSLPct>=50?'🟡 Mixed results':'🟢 Performing';
+      h+='<div style="font-size:12px;color:#78350f">'+addonVerdict+'</div>';
+      h+='<div style="font-size:11px;color:#92400e;margin-top:4px">Fired: <strong>'+rs.addon.fired+'</strong> · SL: <strong>'+rs.addon.sl+' ('+addonSLPct+'%)</strong> · Net P&L: <strong style="color:'+(rs.addon.pnl>=0?'#15803d':'#b91c1c')+'">'+fmtPnl(rs.addon.pnl)+'</strong></div>';
     } else {
-      h += '<div style="font-size:11px;color:#92400e">No add-on trades recorded</div>';
+      h+='<div style="font-size:11px;color:#92400e">No add-on trades recorded</div>';
     }
     h += '</div>';
 
-    // Conditional probability insight
     h += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px">';
     h += '<div style="font-size:11px;font-weight:700;color:#14532d;margin-bottom:6px">📊 Probability Insight</div>';
-    var e1R = rs.runners['E1'], e2R = rs.runners['E2'], e4R = rs.runners['E4'];
-    var e1T = e1R.tp + e1R.sl, e2T = e2R.tp + e2R.sl, e4T = e4R.tp + e4R.sl;
-    if(e1T > 0 && e2T > 0) {
-      var e1P = Math.round(e1R.tp/e1T*100), e2P = Math.round(e2R.tp/e2T*100);
-      var e4P = e4T > 0 ? Math.round(e4R.tp/e4T*100) : null;
-      h += '<div style="font-size:11px;color:#166534;line-height:1.7">';
-      h += 'If a session opens and E1 fires → <strong>' + e1P + '%</strong> chance of TP.<br>';
-      h += 'E2 runner → <strong>' + e2P + '%</strong> chance of TP.<br>';
-      if(e4P !== null) h += 'E4 runner → <strong>' + e4P + '%</strong> chance of TP.<br>';
-      h += '</div>';
+    var e1R=rs.runners['E1'],e2R=rs.runners['E2'],e4R=rs.runners['E4'];
+    var e1T=e1R.tp+e1R.sl,e2T=e2R.tp+e2R.sl,e4T=e4R.tp+e4R.sl;
+    if(e1T>0&&e2T>0){
+      var e1P=Math.round(e1R.tp/e1T*100),e2P=Math.round(e2R.tp/e2T*100);
+      var e4P=e4T>0?Math.round(e4R.tp/e4T*100):null;
+      h+='<div style="font-size:11px;color:#166534;line-height:1.7">';
+      h+='If session opens and E1 fires → <strong>'+e1P+'%</strong> chance of TP.<br>';
+      h+='E2 runner → <strong>'+e2P+'%</strong> chance of TP.<br>';
+      if(e4P!==null)h+='E4 runner → <strong>'+e4P+'%</strong> chance of TP.<br>';
+      h+='</div>';
     } else {
-      h += '<div style="font-size:11px;color:#166534">Not enough runner data yet</div>';
+      h+='<div style="font-size:11px;color:#166534">Not enough runner data yet</div>';
     }
     h += '</div>';
-
-    h += '</div>'; // grid2 right
-    h += '</div>'; // grid2
-    h += '</div>'; // card
+    h += '</div>';
+    h += '</div></div>';
   });
 
-  // Combined runner comparison table if all accounts
-  if(gtmoAcctId === 'all') {
-    h += '<div class="card">';
-    h += '<div class="card-title">Runner Reach Comparison — All Accounts</div>';
+  if(gtmoAcctId==='all') {
+    h += '<div class="card"><div class="card-title">Runner Reach Comparison — All Accounts</div>';
     h += '<div class="tbl-wrap"><table><thead><tr><th>Runner</th>';
-    showAccts.forEach(function(a){ h += '<th>' + a.label + ' Hit %</th><th>tp/sl</th>'; });
+    GTMO_ACCT_DEFS.forEach(function(a){h+='<th>'+a.label+' Hit %</th><th>tp/sl</th>';});
     h += '</tr></thead><tbody>';
-    ['E1','E2','E3','E4','E5','E6','E7','E8'].forEach(function(k) {
-      h += '<tr><td style="font-weight:700;color:var(--blue)">' + k + '</td>';
-      showAccts.forEach(function(a) {
-        var os2 = ordersFor(a.id);
-        var rs2 = getRunnerStats(os2);
-        var tp = rs2.runners[k].tp, sl = rs2.runners[k].sl, tot = tp+sl;
-        var pct = tot ? Math.round(tp/tot*100) : null;
-        var col = pct===null?'var(--sub)':pct>=60?'var(--green)':pct>=35?'var(--gold)':'var(--red)';
-        h += '<td style="font-weight:700;color:' + col + '">' + (pct!==null?pct+'%':'—') + '</td>';
-        h += '<td style="color:var(--sub);font-size:11px">' + (tot?tp+'tp/'+sl+'sl':'—') + '</td>';
+    ['E1','E2','E3','E4','E5','E6','E7','E8'].forEach(function(k){
+      h+='<tr><td style="font-weight:700;color:var(--blue)">'+k+'</td>';
+      GTMO_ACCT_DEFS.forEach(function(a){
+        var os2=ordersFor(a.id), rs2=getRunnerStats(os2);
+        var tp=rs2.runners[k].tp,sl=rs2.runners[k].sl,tot=tp+sl;
+        var pct=tot?Math.round(tp/tot*100):null;
+        var col=pct===null?'var(--sub)':pct>=60?'var(--green)':pct>=35?'var(--gold)':'var(--red)';
+        h+='<td style="font-weight:700;color:'+col+'">'+(pct!==null?pct+'%':'—')+'</td>';
+        h+='<td style="color:var(--sub);font-size:11px">'+(tot?tp+'tp/'+sl+'sl':'—')+'</td>';
       });
-      h += '</tr>';
+      h+='</tr>';
     });
     h += '</tbody></table></div></div>';
   }
 
-  return h;
+  return h || '<div class="empty"><p>No order data for selected account</p></div>';
 }
 
-// ─── GTMO SESSION LOG ─────────────────────────────────────────
+// ── GTMO SESSION LOG ────────────────────────────────────────────
 function renderGtmoSessions() {
-  var sessions = gtmoDb.sessions.slice().sort(function(a,b){ return a.session_date > b.session_date ? -1 : 1; });
+  var sessions = gtmoDb.sessions.slice().sort(function(a,b){return a.session_date>b.session_date?-1:1;});
 
-  // Filter controls
   var h = '<div class="card" style="margin-bottom:16px">';
   h += '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">';
   h += '<div><span class="lbl">Account: </span><select id="sfAcct" onchange="sfAcctVal=this.value;renderGtmo()" style="font-size:12px;padding:4px 8px"><option value="">All</option>';
-  h += '<option value="a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6"' + (sfAcctVal==='a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6'?' selected':'') + '>4xHub MO Gold</option>';
-  h += '<option value="c6596cb8-760f-480b-97b5-f4a3954c1b90"' + (sfAcctVal==='c6596cb8-760f-480b-97b5-f4a3954c1b90'?' selected':'') + '>GTMO Demo</option>';
-  h += '<option value="75fb14d6-0f3a-4196-86fc-c93d78f3d1b2"' + (sfAcctVal==='75fb14d6-0f3a-4196-86fc-c93d78f3d1b2'?' selected':'') + '>GTS Vantage Demo</option>';
+  GTMO_ACCT_DEFS.forEach(function(a){
+    h+='<option value="'+a.id+'"'+(sfAcctVal===a.id?' selected':'')+'>'+a.label+'</option>';
+  });
   h += '</select></div>';
   h += '<div><span class="lbl">Result: </span><select id="sfResult" onchange="sfResultVal=this.value;renderGtmo()" style="font-size:12px;padding:4px 8px">';
-  h += '<option value=""' + (sfResultVal===''?' selected':'') + '>All</option>';
-  h += '<option' + (sfResultVal==='WIN'?' selected':'') + '>WIN</option>';
-  h += '<option' + (sfResultVal==='LOSS'?' selected':'') + '>LOSS</option>';
-  h += '<option' + (sfResultVal==='BREAKEVEN'?' selected':'') + '>BREAKEVEN</option>';
+  h += '<option value=""'+(sfResultVal===''?' selected':'')+'>All</option>';
+  h += '<option'+(sfResultVal==='WIN'?' selected':'')+'>WIN</option>';
+  h += '<option'+(sfResultVal==='LOSS'?' selected':'')+'>LOSS</option>';
+  h += '<option'+(sfResultVal==='BREAKEVEN'?' selected':'')+'>BREAKEVEN</option>';
   h += '</select></div>';
   h += '<div><span class="lbl">Direction: </span><select id="sfDir" onchange="sfDirVal=this.value;renderGtmo()" style="font-size:12px;padding:4px 8px">';
-  h += '<option value=""' + (sfDirVal===''?' selected':'') + '>All</option>';
-  h += '<option' + (sfDirVal==='BUY'?' selected':'') + '>BUY</option>';
-  h += '<option' + (sfDirVal==='SELL'?' selected':'') + '>SELL</option>';
-  h += '</select></div>';
-  h += '<div><span class="lbl">Trade Type: </span><select id="sfType" onchange="sfTypeVal=this.value;renderGtmo()" style="font-size:12px;padding:4px 8px">';
-  h += '<option value=""' + (sfTypeVal===''?' selected':'') + '>All</option>';
-  h += '<option value="manual"' + (sfTypeVal==='manual'?' selected':'') + '>0 — Manual</option>';
-  h += '<option value="ea"' + (sfTypeVal==='ea'?' selected':'') + '>1 — EA</option>';
+  h += '<option value=""'+(sfDirVal===''?' selected':'')+'>All</option>';
+  h += '<option'+(sfDirVal==='BUY'?' selected':'')+'>BUY</option>';
+  h += '<option'+(sfDirVal==='SELL'?' selected':'')+'>SELL</option>';
   h += '</select></div>';
   h += '</div></div>';
 
-  // Apply filters using persistent state variables
-  if(sfAcctVal) sessions = sessions.filter(function(s){ return s.account_id === sfAcctVal; });
-  if(sfResultVal) sessions = sessions.filter(function(s){ return s.result === sfResultVal; });
-  if(sfDirVal)  sessions = sessions.filter(function(s){ return s.signal_direction === sfDirVal; });
-  // Trade type filter — only meaningful for 4xHub (has mixed magic numbers)
-  if(sfTypeVal) {
-    sessions = sessions.filter(function(s) {
-      if(s.account_id !== 'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6') return true; // non-4xHub always passes
-      var dayOrders = gtmoDb.orders.filter(function(o){ return o.account_id === s.account_id && o.close_time && o.close_time.slice(0,10) === s.session_date; });
-      if(sfTypeVal === 'manual') return dayOrders.some(function(o){ return parseInt(o.magic||'0') === 0; });
-      if(sfTypeVal === 'ea')     return dayOrders.some(function(o){ return parseInt(o.magic||'0') !== 0; });
-      return true;
-    });
-  }
+  if(sfAcctVal)   sessions = sessions.filter(function(s){return s.account_id===sfAcctVal;});
+  if(sfResultVal) sessions = sessions.filter(function(s){return s.result===sfResultVal;});
+  if(sfDirVal)    sessions = sessions.filter(function(s){return s.signal_direction===sfDirVal;});
 
-  // Summary strip
-  var wins = sessions.filter(function(s){return s.result==='WIN';}).length;
-  var losses = sessions.filter(function(s){return s.result==='LOSS';}).length;
-  var totalPnl = sessions.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
-  var wr = sessions.length ? Math.round(wins/sessions.length*100) : 0;
+  var wins=sessions.filter(function(s){return s.result==='WIN';}).length;
+  var losses=sessions.filter(function(s){return s.result==='LOSS';}).length;
+  var totalPnl=sessions.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
+  var wr=sessions.length?Math.round(wins/sessions.length*100):0;
 
   h += '<div class="grid4" style="margin-bottom:16px">';
-  h += '<div class="card"><div class="card-title">Sessions</div><div class="kpi-val">' + sessions.length + '</div><div class="kpi-sub">filtered</div></div>';
-  h += '<div class="card"><div class="card-title">Win Rate</div><div class="kpi-val ' + (wr>=55?'green':wr>=40?'gold':'red') + '">' + wr + '%</div><div class="kpi-sub">' + wins + 'W / ' + losses + 'L</div></div>';
-  h += '<div class="card"><div class="card-title">Net P&L</div><div class="kpi-val ' + (totalPnl>=0?'green':'red') + '">' + fmtPnl(totalPnl) + '</div><div class="kpi-sub">filtered sessions</div></div>';
-  var avgPnl = sessions.length ? totalPnl/sessions.length : 0;
-  h += '<div class="card"><div class="card-title">Avg P&L / Session</div><div class="kpi-val ' + (avgPnl>=0?'green':'red') + '">' + fmtPnl(avgPnl) + '</div><div class="kpi-sub">per session</div></div>';
+  h += '<div class="card"><div class="card-title">Sessions</div><div class="kpi-val">'+sessions.length+'</div><div class="kpi-sub">filtered</div></div>';
+  h += '<div class="card"><div class="card-title">Win Rate</div><div class="kpi-val '+(wr>=55?'green':wr>=40?'gold':'red')+'">'+wr+'%</div><div class="kpi-sub">'+wins+'W / '+losses+'L</div></div>';
+  h += '<div class="card"><div class="card-title">Net P&L</div><div class="kpi-val '+(totalPnl>=0?'green':'red')+'">'+fmtPnl(totalPnl)+'</div><div class="kpi-sub">filtered sessions</div></div>';
+  var avgPnl=sessions.length?totalPnl/sessions.length:0;
+  h += '<div class="card"><div class="card-title">Avg P&L / Session</div><div class="kpi-val '+(avgPnl>=0?'green':'red')+'">'+fmtPnl(avgPnl)+'</div><div class="kpi-sub">per session</div></div>';
   h += '</div>';
 
   h += '<div class="card"><div class="tbl-wrap" style="max-height:500px"><table>';
   h += '<thead><tr><th>Date</th><th>Account</th><th>Direction</th><th>Result</th><th>Net P&L</th><th>Balance After</th><th>Pips</th><th>Notes</th></tr></thead><tbody>';
 
   sessions.forEach(function(s) {
-    var pnl = parseFloat(s.net_pnl||0);
-    var resultCls = s.result==='WIN'?'session-result-win':s.result==='LOSS'?'session-result-loss':'session-result-be';
-    var dirCls = s.signal_direction==='BUY'?'badge-buy':s.signal_direction==='SELL'?'badge-sell':'';
-    var label = (s.accounts && s.accounts.label) || getGtmoAcctLabel(s.account_id);
+    var pnl=parseFloat(s.net_pnl||0);
+    var resultCls=s.result==='WIN'?'session-result-win':s.result==='LOSS'?'session-result-loss':'session-result-be';
+    var dirCls=s.signal_direction==='BUY'?'badge-buy':s.signal_direction==='SELL'?'badge-sell':'';
+    var def=getAcctDef(s.account_id);
+    var label=(s.accounts&&s.accounts.label)||def.label;
 
-    // EA/Manual badge for 4xHub sessions
-    var eaManualBadge = '';
-    if(s.account_id === 'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6') {
-      var sessionOrders = gtmoDb.orders.filter(function(o){ return o.account_id === s.account_id && o.close_time && o.close_time.slice(0,10) === s.session_date; });
-      var hasManual = sessionOrders.some(function(o){ return parseInt(o.magic||'0') === 0; });
-      var hasEA     = sessionOrders.some(function(o){ return parseInt(o.magic||'0') !== 0; });
-      if(hasManual && hasEA)  eaManualBadge = '<span class="ea-tag" style="margin-right:3px">EA</span><span class="manual-tag">+Manual</span> ';
-      else if(hasManual)      eaManualBadge = '<span class="manual-tag">Manual</span> ';
-      else if(hasEA)          eaManualBadge = '<span class="ea-tag">EA</span> ';
-    }
+    var pips='—', notesStr=s.notes||'';
+    var pipMatch=notesStr.match(/pips=([-\d.]+)/);
+    if(pipMatch){var pipVal=parseFloat(pipMatch[1]);pips='<span style="color:'+(pipVal>=0?'var(--green)':'var(--red)')+';font-weight:700">'+(pipVal>=0?'+':'')+pipVal.toFixed(0)+'</span>';}
+    var cleanNotes=notesStr.replace(/pips=([-\d.]+)/,'').replace(/exit=\S+/,'').trim().replace(/^[\s·]+/,'');
+    var exitMatch=notesStr.match(/exit=(\S+)/);
+    var exitTag=exitMatch?'<span style="font-size:10px;background:#e2e8f0;padding:1px 5px;border-radius:3px;color:var(--sub)">'+exitMatch[1]+'</span> ':'';
 
-    // Parse pips from notes
-    var pips = '—';
-    var notesStr = s.notes || '';
-    var pipMatch = notesStr.match(/pips=([-\d.]+)/);
-    if(pipMatch) {
-      var pipVal = parseFloat(pipMatch[1]);
-      pips = '<span style="color:' + (pipVal>=0?'var(--green)':'var(--red)') + ';font-weight:700">' + (pipVal>=0?'+':'') + pipVal.toFixed(0) + '</span>';
-    }
-
-    // Clean notes for display
-    var cleanNotes = notesStr.replace(/pips=([-\d.]+)/,'').replace(/exit=\S+/,'').trim().replace(/^[\s·]+/,'');
-    var exitMatch = notesStr.match(/exit=(\S+)/);
-    var exitTag = exitMatch ? '<span style="font-size:10px;background:#e2e8f0;padding:1px 5px;border-radius:3px;color:var(--sub)">' + exitMatch[1] + '</span> ' : '';
-
-    h += '<tr>';
-    h += '<td style="white-space:nowrap">' + s.session_date + '</td>';
-    h += '<td style="font-size:11px;color:var(--sub)">' + label + '</td>';
-    h += '<td>' + (s.signal_direction ? '<span class="' + dirCls + '">' + s.signal_direction + '</span>' : '—') + '</td>';
-    h += '<td><span class="' + resultCls + '">' + (s.result||'—') + '</span></td>';
-    h += '<td style="font-weight:700;color:' + (pnl>=0?'var(--green)':'var(--red)') + '">' + fmtPnl(pnl) + '</td>';
-    h += '<td style="color:var(--sub)">' + (s.balance_close ? '£' + parseFloat(s.balance_close).toFixed(2) : '—') + '</td>';
-    h += '<td>' + pips + '</td>';
-    h += '<td style="font-size:11px;color:var(--sub)">' + eaManualBadge + exitTag + cleanNotes + '</td>';
-    h += '</tr>';
+    h+='<tr>';
+    h+='<td style="white-space:nowrap">'+s.session_date+'</td>';
+    h+='<td style="font-size:11px;color:var(--sub)">'+def.emoji+' '+label+'</td>';
+    h+='<td>'+(s.signal_direction?'<span class="'+dirCls+'">'+s.signal_direction+'</span>':'—')+'</td>';
+    h+='<td><span class="'+resultCls+'">'+(s.result||'—')+'</span></td>';
+    h+='<td style="font-weight:700;color:'+(pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(pnl)+'</td>';
+    h+='<td style="color:var(--sub)">'+(s.balance_close?'£'+parseFloat(s.balance_close).toFixed(2):'—')+'</td>';
+    h+='<td>'+pips+'</td>';
+    h+='<td style="font-size:11px;color:var(--sub)">'+exitTag+cleanNotes+'</td>';
+    h+='</tr>';
   });
 
   h += '</tbody></table></div></div>';
   return h;
 }
 
-// ─── GTMO STRATEGY INTELLIGENCE ───────────────────────────────
+// ── GTMO STRATEGY INTELLIGENCE ──────────────────────────────────
 function renderGtmoIntelligence() {
   var h = '';
-
-  var acctDefs = [
-    {id:'a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6', label:'4xHub MO Gold', isLive:true},
-    {id:'c6596cb8-760f-480b-97b5-f4a3954c1b90', label:'GTMO Demo', isLive:false},
-    {id:'75fb14d6-0f3a-4196-86fc-c93d78f3d1b2', label:'GTS Vantage Demo', isLive:false}
-  ];
-  var showAccts = gtmoAcctId === 'all' ? acctDefs : acctDefs.filter(function(a){ return a.id === gtmoAcctId; });
+  var showAccts = gtmoAcctId==='all' ? GTMO_ACCT_DEFS : GTMO_ACCT_DEFS.filter(function(a){return a.id===gtmoAcctId;});
 
   showAccts.forEach(function(acct) {
     var ss = sessionsFor(acct.id);
     if(!ss.length) return;
-    var os = ordersFor(acct.id);
+    var os   = ordersFor(acct.id);
     var kpis = getGtmoKpis(ss);
-    var rs = getRunnerStats(os);
+    var rs   = getRunnerStats(os);
 
-    // Build checks
+    // Dynamic large event threshold based on lot size
+    // Use latest balance to estimate current lot size
+    var withBal = ss.filter(function(s){return s.balance_close&&parseFloat(s.balance_close)>0;});
+    var latestBal = withBal.length ? parseFloat(withBal[withBal.length-1].balance_close) : 300;
+    var threshold = acct.type==='GTS' ? GTS_THRESHOLD : GTMO_THRESHOLD;
+    var numEntries = acct.type==='GTS' ? GTS_ENTRIES : GTMO_ENTRIES;
+    var cl = calcCycleLevel(latestBal, threshold, numEntries);
+    // Large event = more than 3x a single full win at current lot level
+    var fullWinBase = 9.99; // base at 0.01
+    var currentFullWin = fullWinBase * (cl.baseLot / 0.01);
+    var largeEventThreshold = currentFullWin * 3;
+
     var acctChecks = [];
-    acctChecks.push({label:'Win Rate', detail: kpis.wr.toFixed(1) + '% (' + kpis.wins + 'W/' + kpis.losses + 'L)', status: kpis.wr>=55?'ok':kpis.wr>=40?'warn':'fail'});
-    acctChecks.push({label:'Risk:Reward', detail: 'R:R ' + kpis.rr.toFixed(2) + ' · Avg win £' + kpis.avgWin.toFixed(2) + ' / Avg loss £' + Math.abs(kpis.avgLoss).toFixed(2), status: kpis.rr>=1?'ok':kpis.rr>=0.7?'warn':'fail'});
-    acctChecks.push({label:'Max Drawdown', detail: kpis.maxDd.toFixed(1) + '%', status: kpis.maxDd<15?'ok':kpis.maxDd<30?'warn':'fail'});
-    acctChecks.push({label:'Current Streak', detail: kpis.streak + ' consecutive ' + (kpis.streakType||'—'), status: kpis.streakType==='LOSS'&&kpis.streak>=3?'fail':kpis.streakType==='LOSS'&&kpis.streak>=2?'warn':'ok'});
+    acctChecks.push({label:'Win Rate', detail:kpis.wr.toFixed(1)+'% ('+kpis.wins+'W/'+kpis.losses+'L)', status:kpis.wr>=55?'ok':kpis.wr>=40?'warn':'fail'});
+    acctChecks.push({label:'Risk:Reward', detail:'R:R '+kpis.rr.toFixed(2)+' · Avg win £'+kpis.avgWin.toFixed(2)+' / Avg loss £'+Math.abs(kpis.avgLoss).toFixed(2), status:kpis.rr>=1?'ok':kpis.rr>=0.7?'warn':'fail'});
+    acctChecks.push({label:'Max Drawdown', detail:kpis.maxDd.toFixed(1)+'%', status:kpis.maxDd<15?'ok':kpis.maxDd<30?'warn':'fail'});
+    acctChecks.push({label:'Current Streak', detail:kpis.streak+' consecutive '+(kpis.streakType||'—'), status:kpis.streakType==='LOSS'&&kpis.streak>=3?'fail':kpis.streakType==='LOSS'&&kpis.streak>=2?'warn':'ok'});
 
-    // Generator analysis
-    var gTotal = rs.generator.tp + rs.generator.sl;
-    var gPct = gTotal ? Math.round(rs.generator.tp/gTotal*100) : null;
-    if(gTotal > 0) acctChecks.push({label:'Generator Survival', detail: (gPct||0) + '% reach full TP (' + gTotal + ' sessions)', status: gPct>=40?'ok':gPct>=25?'warn':'fail'});
+    // Lot cycling status check
+    acctChecks.push({label:'Lot Cycling Level', detail:(cl.cycle>0?'Cycle '+cl.cycle+' at '+cl.baseLot.toFixed(2)+' lots':'Unlocking entries — '+cl.unlockedEntries+'/'+numEntries+' unlocked'), status:cl.cycle>0?'ok':'warn'});
 
-    // Add-on check
-    if(rs.addon.fired > 0) {
-      var adSlPct = Math.round(rs.addon.sl/rs.addon.fired*100);
-      acctChecks.push({label:'Add-On Performance', detail: rs.addon.fired + ' trades · ' + adSlPct + '% SL · £' + fmtPnl(rs.addon.pnl), status: adSlPct>=80?'fail':adSlPct>=60?'warn':'ok'});
+    var gTotal=rs.generator.tp+rs.generator.sl, gPct=gTotal?Math.round(rs.generator.tp/gTotal*100):null;
+    if(gTotal>0) acctChecks.push({label:'Generator Survival', detail:(gPct||0)+'% reach full TP ('+gTotal+' sessions)', status:gPct>=40?'ok':gPct>=25?'warn':'fail'});
+
+    if(rs.addon.fired>0){
+      var adSlPct=Math.round(rs.addon.sl/rs.addon.fired*100);
+      acctChecks.push({label:'Add-On Performance', detail:rs.addon.fired+' trades · '+adSlPct+'% SL · '+fmtPnl(rs.addon.pnl), status:adSlPct>=80?'fail':adSlPct>=60?'warn':'ok'});
     }
 
-    // Trend check
-    var sorted = ss.slice().sort(function(a,b){return a.session_date>b.session_date?1:-1;});
-    var last10 = sorted.slice(-10), prev10 = sorted.slice(-20,-10);
-    var last10Pnl = last10.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
-    var prev10Pnl = prev10.length ? prev10.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0) : null;
-    if(prev10Pnl !== null) {
-      acctChecks.push({label:'10-Session Trend', detail: 'Last 10: £' + fmtPnl(last10Pnl) + ' vs prev 10: £' + fmtPnl(prev10Pnl), status: last10Pnl > prev10Pnl ? 'ok' : last10Pnl > prev10Pnl * 0.5 ? 'warn' : 'fail'});
-    }
+    var sorted=ss.slice().sort(function(a,b){return a.session_date>b.session_date?1:-1;});
+    var last10=sorted.slice(-10), prev10=sorted.slice(-20,-10);
+    var last10Pnl=last10.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
+    var prev10Pnl=prev10.length?prev10.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0):null;
+    if(prev10Pnl!==null) acctChecks.push({label:'10-Session Trend', detail:'Last 10: £'+fmtPnl(last10Pnl)+' vs prev 10: £'+fmtPnl(prev10Pnl), status:last10Pnl>prev10Pnl?'ok':last10Pnl>prev10Pnl*0.5?'warn':'fail'});
 
-    var passC = acctChecks.filter(function(c){return c.status==='ok';}).length;
-    var hPct = acctChecks.length ? Math.round(passC/acctChecks.length*100) : 0;
-    var hCol = hPct>=75?'var(--green)':hPct>=50?'var(--gold)':'var(--red)';
+    var passC=acctChecks.filter(function(c){return c.status==='ok';}).length;
+    var hPct=acctChecks.length?Math.round(passC/acctChecks.length*100):0;
+    var hCol=hPct>=75?'var(--green)':hPct>=50?'var(--gold)':'var(--red)';
 
     h += '<div class="analysis-panel gtmo" style="margin-bottom:16px">';
     h += '<div class="analysis-header">';
     h += '<div class="analysis-icon gtmo">⚡</div>';
-    h += '<div><div class="analysis-title">' + acct.label + ' — Strategy Intelligence</div>';
-    h += '<div class="analysis-subtitle">' + ss.length + ' sessions · ' + os.length + ' orders · ' + (acct.isLive ? 'Live account' : 'Demo — pure EA results') + '</div></div>';
-    h += '<div style="margin-left:auto"><div class="score-ring"><div class="score-circle" style="color:' + hCol + ';border-color:' + hCol + '">' + hPct + '%</div><div><div style="font-size:12px;font-weight:700">Strategy Health</div><div style="font-size:11px;color:var(--sub)">' + passC + '/' + acctChecks.length + ' checks passing</div></div></div></div>';
+    h += '<div><div class="analysis-title">'+acct.emoji+' '+acct.label+' — Strategy Intelligence</div>';
+    h += '<div class="analysis-subtitle">'+ss.length+' sessions · '+os.length+' orders · '+(acct.isLive?'Live account':'Demo — pure EA results')+(acct.isShared?' · Shared account — AurumAI Gold sessions only':'')+' · Lot level: '+cl.baseLot.toFixed(2)+'</div></div>';
+    h += '<div style="margin-left:auto"><div class="score-ring"><div class="score-circle" style="color:'+hCol+';border-color:'+hCol+'">'+hPct+'%</div><div><div style="font-size:12px;font-weight:700">Strategy Health</div><div style="font-size:11px;color:var(--sub)">'+passC+'/'+acctChecks.length+' checks passing</div></div></div></div>';
     h += '</div>';
 
-    // Checks
-    acctChecks.forEach(function(c) {
-      h += '<div class="check-row"><div class="check-icon ' + siCls(c.status) + '">' + siIcon(c.status) + '</div><div class="check-label">' + c.label + '</div><div class="check-detail">' + c.detail + '</div></div>';
+    acctChecks.forEach(function(c){
+      h+='<div class="check-row"><div class="check-icon '+siCls(c.status)+'">'+siIcon(c.status)+'</div><div class="check-label">'+c.label+'</div><div class="check-detail">'+c.detail+'</div></div>';
     });
-
     h += '</div>';
 
-    // GTMO Demo special — raw strategy insights
-    if(!acct.isLive) {
+    // Demo accounts — pure strategy analysis
+    if(!acct.isLive && !acct.isShared) {
       h += '<div class="card" style="margin-bottom:16px">';
-      h += '<div class="card-title">GTMO Demo — Pure Strategy Analysis (EA only, no manual interference)</div>';
+      h += '<div class="card-title">'+acct.label+' — Pure Strategy Analysis</div>';
 
-      // Big loss analysis
-      var bigLoss = ss.filter(function(s){ return parseFloat(s.net_pnl||0) < -30; });
-      var bigWin  = ss.filter(function(s){ return parseFloat(s.net_pnl||0) > 30; });
-      var avgBigL = bigLoss.length ? bigLoss.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0)/bigLoss.length : 0;
-      var avgBigW = bigWin.length  ? bigWin.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0)/bigWin.length : 0;
+      var bigLoss=ss.filter(function(s){return parseFloat(s.net_pnl||0)<-largeEventThreshold;});
+      var bigWin =ss.filter(function(s){return parseFloat(s.net_pnl||0)>largeEventThreshold;});
+      var avgBigL=bigLoss.length?bigLoss.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0)/bigLoss.length:0;
+      var avgBigW=bigWin.length ?bigWin.reduce(function(a,s) {return a+parseFloat(s.net_pnl||0);},0)/bigWin.length:0;
 
-      h += '<div class="grid3" style="margin-bottom:12px">';
-      h += '<div class="mini-kpi"><div class="mini-kpi-val red">' + bigLoss.length + '</div><div class="mini-kpi-lbl">Large Losses (&gt;£30)<br>Avg: ' + fmtPnl(avgBigL) + '</div></div>';
-      h += '<div class="mini-kpi"><div class="mini-kpi-val green">' + bigWin.length + '</div><div class="mini-kpi-lbl">Large Wins (&gt;£30)<br>Avg: +£' + avgBigW.toFixed(2) + '</div></div>';
-      h += '<div class="mini-kpi"><div class="mini-kpi-val ' + (avgBigW + avgBigL >= 0 ? 'green' : 'red') + '">' + fmtPnl(avgBigW + avgBigL) + '</div><div class="mini-kpi-lbl">Net of large events</div></div>';
-      h += '</div>';
+      h+='<div style="font-size:10px;color:var(--sub);margin-bottom:8px">Large event threshold: £'+largeEventThreshold.toFixed(2)+' (3× full win at '+cl.baseLot.toFixed(2)+' lots)</div>';
+      h+='<div class="grid3" style="margin-bottom:12px">';
+      h+='<div class="mini-kpi"><div class="mini-kpi-val red">'+bigLoss.length+'</div><div class="mini-kpi-lbl">Large Losses<br>Avg: '+fmtPnl(avgBigL)+'</div></div>';
+      h+='<div class="mini-kpi"><div class="mini-kpi-val green">'+bigWin.length+'</div><div class="mini-kpi-lbl">Large Wins<br>Avg: +£'+avgBigW.toFixed(2)+'</div></div>';
+      h+='<div class="mini-kpi"><div class="mini-kpi-val '+(avgBigW+avgBigL>=0?'green':'red')+'">'+fmtPnl(avgBigW+avgBigL)+'</div><div class="mini-kpi-lbl">Net of large events</div></div>';
+      h+='</div>';
 
-      // Direction performance
-      var buyS  = ss.filter(function(s){ return s.signal_direction === 'BUY'; });
-      var sellS = ss.filter(function(s){ return s.signal_direction === 'SELL'; });
-      var buyWR  = buyS.length  ? Math.round(buyS.filter(function(s){return s.result==='WIN';}).length/buyS.length*100) : 0;
-      var sellWR = sellS.length ? Math.round(sellS.filter(function(s){return s.result==='WIN';}).length/sellS.length*100) : 0;
-      var buyPnl  = buyS.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
-      var sellPnl = sellS.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
+      var buyS=ss.filter(function(s){return s.signal_direction==='BUY';});
+      var sellS=ss.filter(function(s){return s.signal_direction==='SELL';});
+      var buyWR=buyS.length?Math.round(buyS.filter(function(s){return s.result==='WIN';}).length/buyS.length*100):0;
+      var sellWR=sellS.length?Math.round(sellS.filter(function(s){return s.result==='WIN';}).length/sellS.length*100):0;
+      var buyPnl=buyS.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
+      var sellPnl=sellS.reduce(function(a,s){return a+parseFloat(s.net_pnl||0);},0);
 
-      h += '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Direction Performance</div>';
-      h += '<div class="grid2" style="margin-bottom:12px">';
-      h += '<div class="mini-kpi"><div style="display:flex;align-items:center;gap:8px"><span class="badge-buy">BUY</span><span style="font-size:15px;font-weight:800;color:' + (buyWR>=55?'var(--green)':buyWR>=40?'var(--gold)':'var(--red)') + '">' + buyWR + '%</span><span style="font-size:12px;font-weight:700;color:' + (buyPnl>=0?'var(--green)':'var(--red)') + '">' + fmtPnl(buyPnl) + '</span></div><div class="mini-kpi-lbl">' + buyS.length + ' sessions</div></div>';
-      h += '<div class="mini-kpi"><div style="display:flex;align-items:center;gap:8px"><span class="badge-sell">SELL</span><span style="font-size:15px;font-weight:800;color:' + (sellWR>=55?'var(--green)':sellWR>=40?'var(--gold)':'var(--red)') + '">' + sellWR + '%</span><span style="font-size:12px;font-weight:700;color:' + (sellPnl>=0?'var(--green)':'var(--red)') + '">' + fmtPnl(sellPnl) + '</span></div><div class="mini-kpi-lbl">' + sellS.length + ' sessions</div></div>';
-      h += '</div>';
+      h+='<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Direction Performance</div>';
+      h+='<div class="grid2" style="margin-bottom:12px">';
+      h+='<div class="mini-kpi"><div style="display:flex;align-items:center;gap:8px"><span class="badge-buy">BUY</span><span style="font-size:15px;font-weight:800;color:'+(buyWR>=55?'var(--green)':buyWR>=40?'var(--gold)':'var(--red)')+'">'+buyWR+'%</span><span style="font-size:12px;font-weight:700;color:'+(buyPnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(buyPnl)+'</span></div><div class="mini-kpi-lbl">'+buyS.length+' sessions</div></div>';
+      h+='<div class="mini-kpi"><div style="display:flex;align-items:center;gap:8px"><span class="badge-sell">SELL</span><span style="font-size:15px;font-weight:800;color:'+(sellWR>=55?'var(--green)':sellWR>=40?'var(--gold)':'var(--red)')+'">'+sellWR+'%</span><span style="font-size:12px;font-weight:700;color:'+(sellPnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(sellPnl)+'</span></div><div class="mini-kpi-lbl">'+sellS.length+' sessions</div></div>';
+      h+='</div>';
 
-      // Verdict
-      var verdict = '';
-      if(kpis.wr >= 55 && kpis.rr >= 1) {
-        verdict = '<div class="insight-block good"><div class="insight-label">Strategy Verdict</div><div class="insight-text">Win rate and R:R both healthy. Strategy is mathematically sound. Monitor for mean reversion on large loss events.</div></div>';
-      } else if(kpis.rr < 1 && kpis.wr < 55) {
-        verdict = '<div class="insight-block bad"><div class="insight-label">Strategy Verdict</div><div class="insight-text"><strong>Both win rate (' + kpis.wr.toFixed(0) + '%) and R:R (' + kpis.rr.toFixed(2) + ') are below targets.</strong> Large Generator losses (-£' + Math.abs(kpis.avgLoss).toFixed(2) + ' avg) are the primary drag. The single Generator[tp] events (avg +£' + (rs.generator.tp ? (os.filter(function(o){return o.comment==='GTMO-G[tp]';}).reduce(function(a,o){return a+parseFloat(o.profit||0);},0)/rs.generator.tp).toFixed(2) : '?') + ') need to outweigh cumulative SL losses more frequently.</div></div>';
-      } else {
-        verdict = '<div class="insight-block warn"><div class="insight-label">Strategy Verdict</div><div class="insight-text">Mixed performance. Win rate ' + kpis.wr.toFixed(0) + '%, R:R ' + kpis.rr.toFixed(2) + '. Strategy needs more sessions to establish a clear pattern. Keep monitoring.</div></div>';
-      }
-      h += verdict;
-      h += '</div>';
+      var verdict='';
+      if(kpis.wr>=55&&kpis.rr>=1){verdict='<div class="insight-block good"><div class="insight-label">Strategy Verdict</div><div class="insight-text">Win rate and R:R both healthy. Strategy is mathematically sound.</div></div>';}
+      else if(kpis.rr<1&&kpis.wr<55){verdict='<div class="insight-block bad"><div class="insight-label">Strategy Verdict</div><div class="insight-text"><strong>Both win rate ('+kpis.wr.toFixed(0)+'%) and R:R ('+kpis.rr.toFixed(2)+') are below targets.</strong> Large Generator losses are the primary drag.</div></div>';}
+      else{verdict='<div class="insight-block warn"><div class="insight-label">Strategy Verdict</div><div class="insight-text">Mixed performance. Win rate '+kpis.wr.toFixed(0)+'%, R:R '+kpis.rr.toFixed(2)+'. Keep monitoring.</div></div>';}
+      h+=verdict;
+      h+='</div>';
     }
 
-    // 4xHub EA vs Manual breakdown
-    if(acct.isLive) {
-      var eaOrders  = os.filter(function(o){ return parseInt(o.magic||'0') !== 0; });
-      var manOrders = os.filter(function(o){ return parseInt(o.magic||'0') === 0; });
-      var eaPnl  = eaOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
-      var manPnl = manOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
-      var eaWins  = 0, eaLoss = 0, manWins = 0, manLoss = 0;
+    // 4xHub EA vs Manual
+    if(acct.id==='a1e93eec-db3e-4d72-baa3-cf0cd33d2dc6') {
+      var eaOrders=os.filter(function(o){return parseInt(o.magic||'0')!==0;});
+      var manOrders=os.filter(function(o){return parseInt(o.magic||'0')===0;});
+      var eaPnl=eaOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
+      var manPnl=manOrders.reduce(function(a,o){return a+parseFloat(o.profit||0);},0);
+      var eaWins=0,eaLoss=0,manWins=0,manLoss=0;
       eaOrders.forEach(function(o){var p=parseFloat(o.profit||0);if(p>0)eaWins++;else if(p<0)eaLoss++;});
       manOrders.forEach(function(o){var p=parseFloat(o.profit||0);if(p>0)manWins++;else if(p<0)manLoss++;});
+      h+='<div class="card" style="margin-bottom:16px"><div class="card-title">4xHub — EA vs Manual Trade Breakdown</div><div class="grid2">';
+      h+='<div class="mini-kpi"><div style="margin-bottom:8px"><span class="ea-tag">EA Trades</span></div><div style="font-size:20px;font-weight:800;color:'+(eaPnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(eaPnl)+'</div><div class="mini-kpi-lbl">'+eaOrders.length+' orders · '+eaWins+'W / '+eaLoss+'L · '+(eaOrders.length?Math.round(eaWins/eaOrders.length*100):0)+'% WR</div></div>';
+      h+='<div class="mini-kpi"><div style="margin-bottom:8px"><span class="manual-tag">Manual Trades</span></div><div style="font-size:20px;font-weight:800;color:'+(manPnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(manPnl)+'</div><div class="mini-kpi-lbl">'+manOrders.length+' orders · '+manWins+'W / '+manLoss+'L · '+(manOrders.length?Math.round(manWins/manOrders.length*100):0)+'% WR</div></div>';
+      h+='</div></div>';
+    }
 
-      h += '<div class="card" style="margin-bottom:16px">';
-      h += '<div class="card-title">4xHub — EA vs Manual Trade Breakdown</div>';
-      h += '<div class="grid2">';
-      h += '<div class="mini-kpi"><div style="margin-bottom:8px"><span class="ea-tag">EA Trades</span></div>';
-      h += '<div style="font-size:20px;font-weight:800;color:' + (eaPnl>=0?'var(--green)':'var(--red)') + '">' + fmtPnl(eaPnl) + '</div>';
-      h += '<div class="mini-kpi-lbl">' + eaOrders.length + ' orders · ' + eaWins + 'W / ' + eaLoss + 'L · ' + (eaOrders.length?Math.round(eaWins/eaOrders.length*100):0) + '% WR</div></div>';
-      h += '<div class="mini-kpi"><div style="margin-bottom:8px"><span class="manual-tag">Manual Trades</span></div>';
-      h += '<div style="font-size:20px;font-weight:800;color:' + (manPnl>=0?'var(--green)':'var(--red)') + '">' + fmtPnl(manPnl) + '</div>';
-      h += '<div class="mini-kpi-lbl">' + manOrders.length + ' orders · ' + manWins + 'W / ' + manLoss + 'L · ' + (manOrders.length?Math.round(manWins/manOrders.length*100):0) + '% WR</div></div>';
-      h += '</div></div>';
+    // GlobalPrime — AurumAI only note
+    if(acct.isShared) {
+      h+='<div class="card" style="margin-bottom:16px;border-left:3px solid #7c3aed"><div class="card-title">GlobalPrime — AurumAI Gold Performance Only</div>';
+      h+='<div style="font-size:12px;color:#334155;line-height:1.7;margin-bottom:10px">All P&L, win rate and R:R figures above reflect <strong>AurumAI Gold sessions only</strong> (magic 84011019). POS EA and manual forex trades are excluded. The lot cycling level is calculated from the <strong>full account balance</strong> because AurumAI reads the real account balance for lot sizing.</div>';
+      h+=buildSessionSparkline(ss, 400, 70);
+      h+='</div>';
     }
   });
 
   return h || '<div class="empty"><p>No data for selected account</p></div>';
 }
 
-// ─── CSEA FUNCTIONS (unchanged from v3.0) ─────────────────────
+// ── CSEA FUNCTIONS (unchanged) ─────────────────────────────────
 function cleanStartDate() { return document.getElementById('cleanStart').value || '2026-03-23'; }
 
 async function loadData() {
-  var dot = document.getElementById('statusDot');
-  var txt = document.getElementById('statusTxt');
-  var cs = cleanStartDate();
-  dot.className = 'status-dot'; txt.textContent = 'Loading...';
-  document.getElementById('loadStatus').textContent = 'Fetching...';
+  var dot=document.getElementById('statusDot'), txt=document.getElementById('statusTxt');
+  var cs=cleanStartDate();
+  dot.className='status-dot';txt.textContent='Loading...';
+  document.getElementById('loadStatus').textContent='Fetching...';
   try {
-    var accts = await sb('accounts', 'select=id,label,account_number&strategy=eq.CSEA&order=label');
-    var sel = document.getElementById('acctSelect');
-    sel.innerHTML = '<option value="">All CSEA Accounts</option>';
-    accts.forEach(function(a) {
-      var o = document.createElement('option');
-      o.value = a.id; o.textContent = a.label || a.account_number;
-      sel.appendChild(o);
-    });
-    if(!acctId && accts.length) { sel.value = accts[0].id; acctId = accts[0].id; }
-    var af = acctId ? '&account_id=eq.' + acctId : '';
-    var df_pos = cs ? '&open_time=gte.' + cs + 'T00:00:00' : '';
-    var df_sig = cs ? '&ts=gte.' + cs + 'T00:00:00' : '';
-    var df_day = cs ? '&date=gte.' + cs : '';
-    var res = await Promise.all([
-      sb('positions', 'select=*&order=open_time' + af + df_pos),
-      sb('signals',   'select=*&order=ts' + af + df_sig),
-      sb('daily',     'select=*&order=date' + af + df_day),
-      sb('trades',    'select=ticket,event,symbol,direction,ts,entry,lot' + af + '&event=eq.OPEN')
+    var accts=await sb('accounts','select=id,label,account_number&strategy=eq.CSEA&order=label');
+    var sel=document.getElementById('acctSelect');
+    sel.innerHTML='<option value="">All CSEA Accounts</option>';
+    accts.forEach(function(a){var o=document.createElement('option');o.value=a.id;o.textContent=a.label||a.account_number;sel.appendChild(o);});
+    if(!acctId&&accts.length){sel.value=accts[0].id;acctId=accts[0].id;}
+    var af=acctId?'&account_id=eq.'+acctId:'';
+    var df_pos=cs?'&open_time=gte.'+cs+'T00:00:00':'';
+    var df_sig=cs?'&ts=gte.'+cs+'T00:00:00':'';
+    var df_day=cs?'&date=gte.'+cs:'';
+    var res=await Promise.all([
+      sb('positions','select=*&order=open_time'+af+df_pos),
+      sb('signals','select=*&order=ts'+af+df_sig),
+      sb('daily','select=*&order=date'+af+df_day),
+      sb('trades','select=ticket,event,symbol,direction,ts,entry,lot'+af+'&event=eq.OPEN')
     ]);
-    db.posData = res[0]; db.signals = res[1]; db.daily = res[2]; db.trades = res[3];
-    dot.className = 'status-dot live'; txt.textContent = 'Live';
-    document.getElementById('loadStatus').textContent = db.posData.length + ' positions · ' + db.signals.length + ' signals · ' + db.daily.length + ' days';
-    runAnalysis(); render();
-  } catch(e) {
-    dot.className = 'status-dot'; txt.textContent = 'Error';
-    document.getElementById('loadStatus').textContent = 'Error: ' + e.message;
-  }
+    db.posData=res[0];db.signals=res[1];db.daily=res[2];db.trades=res[3];
+    dot.className='status-dot live';txt.textContent='Live';
+    document.getElementById('loadStatus').textContent=db.posData.length+' positions · '+db.signals.length+' signals · '+db.daily.length+' days';
+    runAnalysis();render();
+  } catch(e){dot.className='status-dot';txt.textContent='Error';document.getElementById('loadStatus').textContent='Error: '+e.message;}
 }
 
-function getStats() {
-  var pos = db.posData;
-  var wins = pos.filter(function(p){ return parseFloat(p.net_profit||0) > 0; });
-  var losses = pos.filter(function(p){ return parseFloat(p.net_profit||0) < 0; });
-  var totalPnl = pos.reduce(function(a,p){ return a + parseFloat(p.net_profit||0); }, 0);
-  var avgWin = wins.length ? wins.reduce(function(a,p){ return a+parseFloat(p.net_profit||0); },0)/wins.length : 0;
-  var avgLoss = losses.length ? losses.reduce(function(a,p){ return a+parseFloat(p.net_profit||0); },0)/losses.length : 0;
-  var rr = avgLoss ? Math.abs(avgWin/avgLoss) : 0;
-  var opened = db.signals.filter(function(s){ return s.result==='OPENED'; }).length;
-  var lastDaily = db.daily.length ? db.daily[db.daily.length-1] : null;
-  var openPos = db.trades.filter(function(t){ return t.event==='OPEN'; }).length;
-  return { closed: pos.length, wins: wins.length, losses: losses.length, wr: pos.length ? wins.length/pos.length*100 : 0, totalPnl: totalPnl, avgWin: avgWin, avgLoss: avgLoss, rr: rr, opened: opened, blocked: db.signals.length - opened, positions: openPos, lastDaily: lastDaily };
-}
-function getPairStats() {
-  var map = {};
-  db.posData.forEach(function(p) {
-    var s = p.symbol||'?';
-    if(!map[s]) map[s]={sym:s,trades:0,wins:0,losses:0,pnl:0,winPnl:0,lossPnl:0};
-    map[s].trades++;
-    var n = parseFloat(p.net_profit||0);
-    map[s].pnl += n;
-    if(n>0){map[s].wins++;map[s].winPnl+=n;}else{map[s].losses++;map[s].lossPnl+=n;}
-  });
-  return Object.values(map).sort(function(a,b){return b.pnl-a.pnl;});
-}
-function getHourStats() {
-  var map = {};
-  db.posData.forEach(function(p) {
-    if(!p.open_time) return;
-    var h = new Date(p.open_time).getUTCHours();
-    if(!map[h]) map[h]={hour:h,trades:0,wins:0,pnl:0};
-    map[h].trades++;
-    var n = parseFloat(p.net_profit||0);
-    map[h].pnl += n;
-    if(n>0) map[h].wins++;
-  });
-  var arr = [];
-  for(var h=0;h<24;h++){if(map[h]) arr.push(map[h]);}
-  return arr;
-}
-function getExitStats() {
-  var pos = db.posData;
-  var tp = pos.filter(function(p){ return p.close_reason==='tp'; });
-  var sl = pos.filter(function(p){ return p.close_reason==='sl'; });
-  var ea = pos.filter(function(p){ return p.close_reason==='ea'; });
-  var manual = pos.filter(function(p){ return p.close_reason==='manual'; });
-  function avg(arr) { return arr.length ? arr.reduce(function(a,p){return a+parseFloat(p.net_profit||0);},0)/arr.length : 0; }
-  return { tp:tp.length, sl:sl.length, ea:ea.length, manual:manual.length, avgTp:avg(tp), avgSl:avg(sl), avgEa:avg(ea), avgManual:avg(manual), allPos: pos };
-}
-function runAnalysis() {
-  checks=[]; anomalies=[]; insights=[];
-  var s = getStats();
-  var pairs = getPairStats();
-  var hourData = getHourStats();
-  var exits = getExitStats();
-  var targetHitDays = db.daily.filter(function(d){return d.target_hit;}).length;
-  var blockReasons = {};
-  db.signals.filter(function(sg){return sg.result==='BLOCKED';}).forEach(function(sg){ var r=sg.block_reason||'Unknown'; blockReasons[r]=(blockReasons[r]||0)+1; });
-  var lastSig = db.signals.length ? db.signals[db.signals.length-1] : null;
-  var minsAgo = lastSig ? Math.round((Date.now()-new Date(lastSig.ts))/60000) : 9999;
-  checks.push({label:'Push Connectivity',detail:lastSig?'Last signal '+(minsAgo<60?minsAgo+'m':Math.round(minsAgo/60)+'h')+' ago':'No signals',status:minsAgo<180?'ok':minsAgo<600?'warn':'fail'});
-  var openRate = db.signals.length ? Math.round(s.opened/db.signals.length*100) : 0;
-  checks.push({label:'Signal Open Rate',detail:s.opened+'/'+db.signals.length+' opened ('+openRate+'%)',status:openRate>3&&openRate<70?'ok':openRate===0?'fail':'warn'});
-  checks.push({label:'Win Rate (positions)',detail:s.wins+'W/'+s.losses+'L = '+s.wr.toFixed(1)+'%',status:s.wr>=55?'ok':s.wr>=40?'warn':'fail'});
-  checks.push({label:'Risk:Reward',detail:'Avg R:R = '+s.rr.toFixed(2)+' | Win $'+s.avgWin.toFixed(2)+' / Loss $'+s.avgLoss.toFixed(2),status:s.rr>=1?'ok':s.rr>=0.7?'warn':'fail'});
-  var compRate = db.daily.length ? Math.round(targetHitDays/db.daily.length*100) : 0;
-  checks.push({label:'Compound Target Rate',detail:targetHitDays+'/'+db.daily.length+' days hit ('+compRate+'%)',status:compRate>=60?'ok':compRate>=40?'warn':'fail'});
-  if(hourData.length>=3){var worstH=hourData.reduce(function(a,b){return b.pnl<a.pnl?b:a;});checks.push({label:'Worst Hour',detail:worstH.hour+':00 UTC ('+fmtPnl(worstH.pnl)+', '+worstH.trades+'t)',status:worstH.pnl<-15?'warn':'ok'});}
-  checks.push({label:'Exit Mix',detail:'TP:'+exits.tp+' SL:'+exits.sl+' EA:'+exits.ea+' Manual:'+exits.manual,status:exits.tp>0?'ok':'warn'});
-  var slDrag = exits.sl>0?Math.abs(exits.avgSl*exits.sl):0, tpGain=exits.tp>0?exits.avgTp*exits.tp:0;
-  checks.push({label:'TP vs SL P&L balance',detail:'TP total '+fmtPnl(tpGain)+' vs SL total '+fmtPnl(-slDrag),status:tpGain>slDrag?'ok':tpGain>slDrag*0.7?'warn':'fail'});
-  var bigLoss=db.posData.filter(function(p){return parseFloat(p.net_profit||0)<-20;});
-  if(bigLoss.length) anomalies.push({type:'error',title:bigLoss.length+' Large Loss(es) >$20',desc:bigLoss.map(function(p){return p.symbol+' '+fmtPnl(p.net_profit)+' ('+p.close_reason+')';}).join(', ')});
-  var worstPair=pairs.find(function(p){return p.trades>=3&&p.pnl<-10;});
-  if(worstPair) anomalies.push({type:'warn',title:worstPair.sym+' underperforming',desc:worstPair.trades+'t, '+Math.round(worstPair.wins/worstPair.trades*100)+'%WR, P&L '+fmtPnl(worstPair.pnl)});
-  if(hourData.length>0){var badHours=hourData.filter(function(h){return h.pnl<-15;});if(badHours.length) anomalies.push({type:'warn',title:'Problem hour(s): '+badHours.map(function(h){return h.hour+':00 UTC';}).join(', '),desc:badHours.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+', '+h.trades+'t, '+Math.round(h.wins/h.trades*100)+'%WR)';}).join(' · ')});}
-  if(exits.manual>0&&exits.avgManual<0) anomalies.push({type:'warn',title:'Manual closes below breakeven',desc:exits.manual+' manual closes averaging '+fmtPnl(exits.avgManual)});
-  if(s.closed>0){var perfTone=s.totalPnl>0&&s.wr>=55?'good':s.totalPnl<0||s.wr<40?'bad':'warn';insights.push({type:perfTone,label:'Performance Summary',text:'<strong>'+s.closed+' positions</strong> — <strong>'+s.wr.toFixed(1)+'% win rate</strong>, <strong>'+fmtPnl(s.totalPnl)+' net P&L</strong>. '+(s.rr>=1?'R:R '+s.rr.toFixed(2)+' — avg win $'+s.avgWin.toFixed(2)+' vs avg loss $'+Math.abs(s.avgLoss).toFixed(2)+'.':'R:R '+s.rr.toFixed(2)+' — losers currently larger than winners.')});}
-  if(exits.tp+exits.sl>0){var slPct=Math.round(exits.sl/(exits.tp+exits.sl+exits.ea+exits.manual)*100);insights.push({type:slPct>65?'warn':'ok',label:'Exit Analysis',text:'TP hits: <strong>'+exits.tp+'</strong> (avg '+fmtPnl(exits.avgTp)+') · SL hits: <strong>'+exits.sl+'</strong> (avg '+fmtPnl(exits.avgSl)+') · EA closes: <strong>'+exits.ea+'</strong> · Manual: <strong>'+exits.manual+'</strong>. '+(slPct>65?'SL rate at '+slPct+'% — high but avg SL loss is controlled.':'Exit mix is healthy.')});}
-  if(db.signals.length>0){var topBR=Object.entries(blockReasons).sort(function(a,b){return b[1]-a[1];})[0];var openR2=db.signals.length?Math.round(s.opened/db.signals.length*100):0;insights.push({type:openR2<10?'warn':'ok',label:'Signal Quality',text:'<strong>'+db.signals.length+' signals</strong> — '+openR2+'% opened, '+(100-openR2)+'% blocked. '+(topBR?'Most common block: <strong>'+topBR[0]+'</strong> ('+topBR[1]+' times). ':'')});}
-  if(pairs.length>0){var best=pairs[0],worst=pairs[pairs.length-1];insights.push({type:worst.pnl<-15?'warn':'ok',label:'Pair Performance',text:'Best: <strong>'+best.sym+'</strong> ('+best.trades+'t, '+Math.round(best.wins/best.trades*100)+'%WR, '+fmtPnl(best.pnl)+').'+(pairs.length>1?' Weakest: <strong>'+worst.sym+'</strong> ('+worst.trades+'t, '+Math.round(worst.wins/worst.trades*100)+'%WR, '+fmtPnl(worst.pnl)+').':'')});}
-  if(hourData.length>=3){var topH=hourData.slice().sort(function(a,b){return b.pnl-a.pnl;}).slice(0,3),botH=hourData.filter(function(h){return h.pnl<-10;});insights.push({type:botH.length?'warn':'ok',label:'Hour of Day Pattern',text:'Best UTC hours: <strong>'+topH.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+', '+h.trades+'t)';}).join(' · ')+'</strong>.'+(botH.length?' Problem hours: <strong>'+botH.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+')';}).join(', ')+'</strong>.':'')});}
-  if(db.daily.length>0){var lastD=db.daily[db.daily.length-1],endBal=lastD?parseFloat(lastD.end_balance||0):0,startBal=db.daily[0]?parseFloat(db.daily[0].start_balance||0):0,growth=startBal?((endBal-startBal)/startBal*100):0;insights.push({type:compRate>=60?'good':compRate>=40?'warn':'bad',label:'Compound Progress',text:'Day <strong>'+(lastD&&lastD.compound_day||'?')+'</strong>, balance <strong>$'+endBal.toFixed(2)+'</strong>. Target hit <strong>'+targetHitDays+'/'+db.daily.length+' days ('+compRate+'%)</strong>.'+(startBal?' Account grown <strong>'+(growth>=0?'+':'')+growth.toFixed(1)+'%</strong> since Day 1.':'')});}
-  var recs=[];
-  if(s.wr<55) recs.push('Win rate '+s.wr.toFixed(1)+'% — below 55% target. Consider raising InpMinStrengthGap.');
-  if(s.rr<1) recs.push('R:R '+s.rr.toFixed(2)+' below 1:1 — review ADR-based SL/TP settings.');
-  if(exits.manual>0&&exits.avgManual<0) recs.push('Stop manual closing — EA-managed exits outperforming.');
-  if(hourData.length>0){var badH2=hourData.filter(function(h){return h.pnl<-10;});if(badH2.length) recs.push('Problem hours '+badH2.map(function(h){return h.hour+':00 UTC';}).join(', ')+' — flag for Phase 3 time filter.');}
-  var worstPR=pairs.find(function(p){return p.trades>=3&&p.pnl<-10;});
-  if(worstPR) recs.push(worstPR.sym+' dragging — flag for Phase 3 pair review.');
-  if(recs.length===0) recs.push('Looking healthy — maintain current settings and accumulate more trades before changes.');
-  insights.push({type:'blue',label:'Actionable Recommendations',recs:recs});
-}
-function setTab(id,btn) {
-  activeTab=id;
-  document.querySelectorAll('#tabBar .tab').forEach(function(t){t.classList.remove('active');});
-  if(btn) btn.classList.add('active');
-  else { var map=['overview','analysis','hour','pairs','exits','positions','signals','compound','snapshot','anomalies']; var idx=map.indexOf(id); var tabs=document.querySelectorAll('#tabBar .tab'); if(idx>=0) tabs[idx].classList.add('active'); }
-  render();
-}
-function render() {
-  if(!db.posData.length&&!db.signals.length) return;
-  var c=document.getElementById('mainContent');
-  if(activeTab==='overview') c.innerHTML=renderOverview();
-  else if(activeTab==='analysis') c.innerHTML=renderAnalysis();
-  else if(activeTab==='hour') c.innerHTML=renderHourOfDay();
-  else if(activeTab==='pairs') c.innerHTML=renderPairPerformance();
-  else if(activeTab==='exits') c.innerHTML=renderExitAnalysis();
-  else if(activeTab==='positions') c.innerHTML=renderPositions();
-  else if(activeTab==='signals') c.innerHTML=renderSignals();
-  else if(activeTab==='compound') c.innerHTML=renderCompound();
-  else if(activeTab==='snapshot') c.innerHTML=renderSnapshot();
-  else if(activeTab==='anomalies') c.innerHTML=renderAnomalies();
-}
-function renderOverview() {
-  var s=getStats(),passC=checks.filter(function(c){return c.status==='ok';}).length,hPct=checks.length?Math.round(passC/checks.length*100):0,hCol=hPct>=80?'var(--green)':hPct>=50?'var(--gold)':'var(--red)',exits=getExitStats();
-  var h='<div class="grid5">';
-  h+='<div class="card"><div class="card-title">Net P&amp;L <span class="src-badge">positions</span></div><div class="kpi-val '+(s.totalPnl>=0?'green':'red')+'">'+fmtPnl(s.totalPnl)+'</div><div class="kpi-sub">'+s.closed+' closed positions</div></div>';
-  h+='<div class="card"><div class="card-title">Win Rate</div><div class="kpi-val '+(s.wr>=55?'green':s.wr>=40?'gold':'red')+'">'+s.wr.toFixed(1)+'%</div><div class="kpi-sub">'+s.wins+'W / '+s.losses+'L</div></div>';
-  h+='<div class="card"><div class="card-title">Risk:Reward</div><div class="kpi-val '+(s.rr>=1?'green':'red')+'">'+s.rr.toFixed(2)+'</div><div class="kpi-sub">Avg win '+fmtPnl(s.avgWin)+'</div></div>';
-  h+='<div class="card"><div class="card-title">Open Positions</div><div class="kpi-val cyan">'+s.positions+'</div><div class="kpi-sub">'+db.signals.length+' signals loaded</div></div>';
-  h+='<div class="card"><div class="card-title">System Health</div><div class="kpi-val" style="color:'+hCol+'">'+hPct+'%</div><div class="kpi-sub">'+passC+'/'+checks.length+' checks pass</div></div></div>';
-  h+='<div class="grid2"><div class="card"><div class="card-title">Health Checks</div>';
-  checks.forEach(function(c){h+='<div class="check-row"><div class="check-icon '+siCls(c.status)+'">'+siIcon(c.status)+'</div><div class="check-label">'+c.label+'</div><div class="check-detail">'+c.detail+'</div></div>';});
-  h+='</div><div class="card"><div class="card-title">Session Summary</div><div class="grid2" style="gap:10px;margin-bottom:12px">';
-  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--blue)">'+db.signals.length+'</div><div style="font-size:11px;color:var(--sub)">Signals Loaded</div></div>';
-  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--green)">'+s.closed+'</div><div style="font-size:11px;color:var(--sub)">Positions (clean)</div></div>';
-  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--green)">'+exits.tp+'</div><div style="font-size:11px;color:var(--sub)">TP Hits</div></div>';
-  h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--red)">'+exits.sl+'</div><div style="font-size:11px;color:var(--sub)">SL Hits</div></div></div>';
-  if(s.lastDaily){var pv=parseFloat(s.lastDaily.daily_pnl||0);h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:11px;color:var(--sub);margin-bottom:8px">LAST DAILY — '+s.lastDaily.date+'</div><div style="display:flex;gap:16px;flex-wrap:wrap"><div><div style="font-size:11px;color:var(--sub)">Day</div><div style="font-weight:700;color:var(--cyan)">'+s.lastDaily.compound_day+'</div></div><div><div style="font-size:11px;color:var(--sub)">P&amp;L</div><div style="font-weight:700;color:'+(pv>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(pv)+'</div></div><div><div style="font-size:11px;color:var(--sub)">Balance</div><div style="font-weight:700">$'+parseFloat(s.lastDaily.end_balance||0).toFixed(2)+'</div></div><div><div style="font-size:11px;color:var(--sub)">Target</div><div style="font-weight:700;color:'+(s.lastDaily.target_hit?'var(--green)':'var(--sub)')+'">'+( s.lastDaily.target_hit?'HIT':'MISS')+'</div></div></div></div>';}
-  h+='<button class="btn-smart" style="width:100%" onclick="setTab(\'analysis\',null);render()">Smart Analysis</button></div></div>';
-  return h;
-}
-function renderAnalysis() {
-  var passC=checks.filter(function(c){return c.status==='ok';}).length,hPct=checks.length?Math.round(passC/checks.length*100):0,hCol=hPct>=80?'var(--green)':hPct>=50?'var(--gold)':'var(--red)',recI=null,mainI=[];
-  insights.forEach(function(i){if(i.recs)recI=i;else mainI.push(i);});
-  var h='<div class="analysis-panel"><div class="analysis-header"><div class="analysis-icon">🧠</div><div><div class="analysis-title">Smart Analysis Report</div><div class="analysis-subtitle">Powered by positions table — real net P&L including commission &amp; swap</div></div><div style="margin-left:auto"><div class="score-ring"><div class="score-circle" style="color:'+hCol+';border-color:'+hCol+'">'+hPct+'%</div><div><div style="font-size:12px;font-weight:700">System Health</div><div style="font-size:11px;color:var(--sub)">'+passC+'/'+checks.length+' checks passing</div></div></div></div></div>';
-  mainI.forEach(function(i){var cls=i.type==='good'?'good':i.type==='bad'?'bad':i.type==='warn'?'warn':'';h+='<div class="insight-block '+cls+'"><div class="insight-label">'+i.label+'</div><div class="insight-text">'+i.text+'</div></div>';});
-  if(recI){h+='<div class="insight-block" style="border-left-color:var(--cyan)"><div class="insight-label" style="color:var(--cyan)">'+recI.label+'</div><ul class="rec-list">';recI.recs.forEach(function(r){h+='<li>'+r+'</li>';});h+='</ul></div>';}
-  h+='</div>';
-  if(anomalies.length){h+='<div class="card"><div class="card-title">Active Anomalies ('+anomalies.length+')</div>';anomalies.forEach(function(a){h+='<div class="anomaly-item '+(a.type==='warn'?'aw':'')+'\"><div class="anomaly-title">'+(a.type==='warn'?'⚠ ':'🚨 ')+a.title+'</div><div class="anomaly-desc">'+a.desc+'</div></div>';});h+='</div>';}
-  else h+='<div class="card" style="text-align:center;padding:20px"><span style="color:var(--green);font-size:13px;font-weight:700">No anomalies detected</span></div>';
-  return h;
-}
-function renderHourOfDay() {
-  var hourData=getHourStats();
-  if(!hourData.length) return '<div class="empty"><p>No positions in selected date range</p></div>';
-  var maxAbs=Math.max.apply(null,hourData.map(function(h){return Math.abs(h.pnl);}));if(maxAbs===0) maxAbs=1;
-  var bestH=hourData.reduce(function(a,b){return b.pnl>a.pnl?b:a;}),worstH=hourData.reduce(function(a,b){return b.pnl<a.pnl?b:a;}),totalTrades=hourData.reduce(function(a,h){return a+h.trades;},0),totalPnl=hourData.reduce(function(a,h){return a+h.pnl;},0);
-  var h='<div class="grid4" style="margin-bottom:16px">';
-  h+='<div class="card"><div class="card-title">Best Hour (UTC)</div><div class="kpi-val green">'+bestH.hour+':00</div><div class="kpi-sub">'+fmtPnl(bestH.pnl)+' · '+bestH.trades+'t · '+Math.round(bestH.wins/bestH.trades*100)+'%WR</div></div>';
-  h+='<div class="card"><div class="card-title">Worst Hour (UTC)</div><div class="kpi-val red">'+worstH.hour+':00</div><div class="kpi-sub">'+fmtPnl(worstH.pnl)+' · '+worstH.trades+'t · '+Math.round(worstH.wins/worstH.trades*100)+'%WR</div></div>';
-  h+='<div class="card"><div class="card-title">Active Hours</div><div class="kpi-val cyan">'+hourData.length+'</div><div class="kpi-sub">of 24 · '+totalTrades+' positions</div></div>';
-  h+='<div class="card"><div class="card-title">Total P&amp;L</div><div class="kpi-val '+(totalPnl>=0?'green':'red')+'">'+fmtPnl(totalPnl)+'</div><div class="kpi-sub">across all hours</div></div></div>';
-  h+='<div class="card" style="margin-bottom:16px"><div class="card-title">P&amp;L by Hour Opened (UTC — broker chart time = UTC+3)</div><div class="hour-chart">';
-  for(var hh=0;hh<24;hh++){var hd=null;for(var xx=0;xx<hourData.length;xx++){if(hourData[xx].hour===hh){hd=hourData[xx];break;}}var lbl=(hh<10?'0':'')+hh+':00';h+='<div class="hour-row"><div class="hour-label">'+lbl+'</div><div class="hour-bar-wrap">';if(hd){var pct2=Math.max(2,Math.round(Math.abs(hd.pnl)/maxAbs*75)),col2=hd.pnl>=0?'var(--green)':'var(--red)',wr2=Math.round(hd.wins/hd.trades*100);h+='<div class="hour-bar" style="width:'+pct2+'%;background:'+col2+'">'+(pct2>15?fmtPnl(hd.pnl):'')+'</div><div class="hour-stats">'+fmtPnl(hd.pnl)+' | '+hd.trades+'t | '+wr2+'%WR</div>';}else h+='<div style="font-size:11px;color:#cbd5e1">— no positions</div>';h+='</div></div>';}
-  h+='</div></div>';
-  var goodH=hourData.filter(function(x){return x.pnl>0;}).sort(function(a,b){return b.pnl-a.pnl;}),badH=hourData.filter(function(x){return x.pnl<0;}).sort(function(a,b){return a.pnl-b.pnl;});
-  h+='<div class="card"><div class="card-title">Hour Summary</div>';
-  if(goodH.length) h+='<div style="margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--green)">WINNING: </span>'+goodH.map(function(x){return '<strong>'+x.hour+':00</strong> ('+fmtPnl(x.pnl)+', '+x.trades+'t, '+Math.round(x.wins/x.trades*100)+'%WR)';}).join(' · ')+'</div>';
-  if(badH.length) h+='<div style="margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--red)">PROBLEM: </span>'+badH.map(function(x){return '<strong>'+x.hour+':00</strong> ('+fmtPnl(x.pnl)+', '+x.trades+'t, '+Math.round(x.wins/x.trades*100)+'%WR)';}).join(' · ')+'</div>';
-  h+='<div style="font-size:11px;color:var(--sub);padding-top:8px;border-top:1px solid var(--border)">UTC+3 = broker chart time · Patterns strengthen after 50+ positions.</div></div>';
-  return h;
-}
-function renderPairPerformance() {
-  var pairs=getPairStats();if(!pairs.length) return '<div class="empty"><p>No positions yet</p></div>';
-  var maxAbs=Math.max.apply(null,pairs.map(function(p){return Math.abs(p.pnl);}));if(maxAbs===0) maxAbs=1;
-  var profPairs=pairs.filter(function(p){return p.pnl>0;}).length,totalT=pairs.reduce(function(a,p){return a+p.trades;},0);
-  var h='<div class="grid4" style="margin-bottom:16px"><div class="card"><div class="card-title">Pairs Traded</div><div class="kpi-val">'+pairs.length+'</div><div class="kpi-sub">'+profPairs+' profitable / '+(pairs.length-profPairs)+' losing</div></div>';
-  h+='<div class="card"><div class="card-title">Best Pair</div><div class="kpi-val green">'+pairs[0].sym+'</div><div class="kpi-sub">'+fmtPnl(pairs[0].pnl)+' · '+Math.round(pairs[0].wins/pairs[0].trades*100)+'%WR</div></div>';
-  h+='<div class="card"><div class="card-title">Worst Pair</div><div class="kpi-val red">'+pairs[pairs.length-1].sym+'</div><div class="kpi-sub">'+fmtPnl(pairs[pairs.length-1].pnl)+' · '+Math.round(pairs[pairs.length-1].wins/pairs[pairs.length-1].trades*100)+'%WR</div></div>';
-  h+='<div class="card"><div class="card-title">Total Positions</div><div class="kpi-val">'+totalT+'</div><div class="kpi-sub">across '+pairs.length+' pairs</div></div></div>';
-  h+='<div class="card" style="margin-bottom:16px"><div class="card-title">Net P&amp;L by Pair</div>';
-  pairs.forEach(function(p){var wr3=Math.round(p.wins/p.trades*100),pct3=Math.max(2,Math.round(Math.abs(p.pnl)/maxAbs*100));h+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:12px;font-weight:700">'+p.sym+'</span><div style="display:flex;gap:12px"><span style="font-size:11px;color:var(--sub)">'+p.trades+'t</span><span style="font-size:11px;color:var(--sub)">'+wr3+'%WR</span><span style="font-size:12px;font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</span></div></div><div class="progress"><div class="progress-bar" style="width:'+pct3+'%;background:'+(p.pnl>=0?'var(--green)':'var(--red)')+'"></div></div></div>';});
-  h+='</div>';
-  h+='<div class="card"><div class="card-title">Pair Detail Table</div><div class="tbl-wrap"><table><thead><tr><th>Pair</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win Rate</th><th>Net P&amp;L</th><th>Avg Win</th><th>Avg Loss</th><th>R:R</th></tr></thead><tbody>';
-  pairs.forEach(function(p){var wr4=Math.round(p.wins/p.trades*100),avgW4=p.wins?p.winPnl/p.wins:0,avgL4=p.losses?p.lossPnl/p.losses:0,rr4=avgL4?Math.abs(avgW4/avgL4):(avgW4>0?99:0);h+='<tr><td style="font-weight:700;color:var(--blue)">'+p.sym+'</td><td>'+p.trades+'</td><td style="color:var(--green)">'+p.wins+'</td><td style="color:var(--red)">'+p.losses+'</td><td><span style="font-weight:700;color:'+(wr4>=55?'var(--green)':'var(--red)')+'">'+wr4+'%</span></td><td style="font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</td><td style="color:var(--green)">'+(p.wins?fmtPnl(avgW4):'—')+'</td><td style="color:var(--red)">'+(p.losses?fmtPnl(avgL4):'—')+'</td><td style="color:'+(rr4>=1?'var(--green)':'var(--gold)')+'">'+( p.losses?rr4.toFixed(2):'∞')+'</td></tr>';});
-  h+='</tbody></table></div></div>';return h;
-}
-function renderExitAnalysis() {
-  var exits=getExitStats(),total=exits.tp+exits.sl+exits.ea+exits.manual;
-  if(total===0) return '<div class="empty"><p>No closed positions yet</p></div>';
-  var h='<div class="grid4" style="margin-bottom:16px"><div class="card"><div class="card-title">TP Hits</div><div class="kpi-val green">'+exits.tp+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgTp)+'</div></div><div class="card"><div class="card-title">SL Hits</div><div class="kpi-val red">'+exits.sl+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgSl)+'</div></div><div class="card"><div class="card-title">EA Closes</div><div class="kpi-val cyan">'+exits.ea+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgEa)+'</div></div><div class="card"><div class="card-title">Manual Closes</div><div class="kpi-val gold">'+exits.manual+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgManual)+'</div></div></div>';
-  h+='<div class="card" style="margin-bottom:16px"><div class="card-title">Exit Distribution</div>';
-  var bars=[{label:'TP Hits',count:exits.tp,col:'var(--green)',avg:exits.avgTp},{label:'SL Hits',count:exits.sl,col:'var(--red)',avg:exits.avgSl},{label:'EA Close',count:exits.ea,col:'var(--cyan)',avg:exits.avgEa},{label:'Manual Close',count:exits.manual,col:'var(--gold)',avg:exits.avgManual}];
-  bars.filter(function(b){return b.count>0;}).forEach(function(b){var pct4=Math.round(b.count/total*100);h+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;font-weight:700">'+b.label+'</span><span style="font-size:12px;color:'+b.col+'">'+b.count+' ('+pct4+'%) · avg '+fmtPnl(b.avg)+'</span></div><div class="progress" style="height:10px"><div class="progress-bar" style="width:'+pct4+'%;background:'+b.col+'"></div></div></div>';});
-  h+='</div>';
-  h+='<div class="card"><div class="card-title">Position Log (most recent 60)</div><div class="tbl-wrap"><table><thead><tr><th>Opened</th><th>Closed</th><th>Symbol</th><th>Dir</th><th>Lot</th><th>Net P&amp;L</th><th>Exit</th><th>Commission</th></tr></thead><tbody>';
-  exits.allPos.slice().reverse().slice(0,60).forEach(function(p){var n5=parseFloat(p.net_profit||0),ec5,et5;if(p.close_reason==='tp'){et5='TP Hit';ec5='exit-tp';}else if(p.close_reason==='sl'){et5='SL Hit';ec5='exit-sl';}else if(p.close_reason==='ea'){et5='EA Close';ec5='exit-ea';}else{et5='Manual';ec5='exit-manual';}h+='<tr><td style="color:var(--sub);font-size:11px">'+(p.open_time||'').slice(0,16)+'</td><td style="color:var(--sub);font-size:11px">'+(p.close_time||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(p.symbol||'—')+'</td><td><span class="badge-'+(p.direction||'').toLowerCase()+'">'+(p.direction||'—')+'</span></td><td>'+(p.lot||'—')+'</td><td style="font-weight:700;color:'+(n5>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(n5)+'</td><td><span class="'+ec5+'">'+et5+'</span></td><td style="color:var(--sub);font-size:11px">'+parseFloat(p.commission||0).toFixed(2)+'</td></tr>';});
-  h+='</tbody></table></div></div>';return h;
-}
-function renderPositions() {
-  var pos=db.posData.slice().reverse(),pairs6=getPairStats(),maxAbs6=Math.max.apply(null,pairs6.map(function(p){return Math.abs(p.pnl);}).concat([1]));
-  var h='<div class="grid2" style="margin-bottom:16px"><div class="card"><div class="card-title">P&amp;L by Pair</div>';
-  pairs6.slice(0,12).forEach(function(p){var wr5=Math.round(p.wins/p.trades*100),pct5=Math.max(2,Math.round(Math.abs(p.pnl)/maxAbs6*100));h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px"><span style="font-size:12px;font-weight:700">'+p.sym+'</span><div style="display:flex;gap:8px"><span style="font-size:11px;color:var(--sub)">'+wr5+'%WR</span><span style="font-size:12px;font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</span></div></div><div class="progress"><div class="progress-bar" style="width:'+pct5+'%;background:'+(p.pnl>=0?'var(--green)':'var(--red)')+'"></div></div></div>';});
-  h+='</div><div class="card"><div class="card-title">Open Positions</div><div class="tbl-wrap" style="max-height:280px"><table><thead><tr><th>Symbol</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Opened</th></tr></thead><tbody>';
-  if(db.trades.length){db.trades.forEach(function(t){h+='<tr><td style="color:var(--blue);font-weight:700">'+(t.symbol||'—')+'</td><td><span class="badge-'+(t.direction||'').toLowerCase()+'">'+(t.direction||'—')+'</span></td><td>'+(t.lot||'—')+'</td><td>'+parseFloat(t.entry||0).toFixed(5)+'</td><td style="color:var(--sub);font-size:11px">'+(t.ts||'').slice(0,16)+'</td></tr>';});}else h+='<tr><td colspan="5" style="color:var(--sub);text-align:center">No open positions</td></tr>';
-  h+='</tbody></table></div></div></div>';
-  h+='<div class="card"><div class="card-title">All Positions ('+pos.length+' total)</div><div class="tbl-wrap"><table><thead><tr><th>Opened</th><th>Symbol</th><th>Dir</th><th>Lot</th><th>Net P&amp;L</th><th>Gross</th><th>Comm</th><th>Exit</th><th>Close Time</th></tr></thead><tbody>';
-  pos.slice(0,100).forEach(function(p){var n6=parseFloat(p.net_profit||0),ec6=p.close_reason==='tp'?'exit-tp':p.close_reason==='sl'?'exit-sl':p.close_reason==='ea'?'exit-ea':'exit-manual';h+='<tr><td style="color:var(--sub);font-size:11px">'+(p.open_time||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(p.symbol||'—')+'</td><td><span class="badge-'+(p.direction||'').toLowerCase()+'">'+(p.direction||'—')+'</span></td><td>'+(p.lot||'—')+'</td><td style="font-weight:700;color:'+(n6>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(n6)+'</td><td style="color:var(--sub)">'+parseFloat(p.profit||0).toFixed(2)+'</td><td style="color:var(--sub)">'+parseFloat(p.commission||0).toFixed(2)+'</td><td><span class="'+ec6+'">'+(p.close_reason||'—')+'</span></td><td style="color:var(--sub);font-size:11px">'+(p.close_time||'').slice(0,16)+'</td></tr>';});
-  h+='</tbody></table></div></div>';return h;
-}
-function renderSignals() {
-  var sigs=db.signals.slice().reverse().slice(0,200),blockReasons={};
-  db.signals.filter(function(s){return s.result==='BLOCKED';}).forEach(function(s){var r=s.block_reason||'Unknown';blockReasons[r]=(blockReasons[r]||0)+1;});
-  var sortedR=Object.entries(blockReasons).sort(function(a,b){return b[1]-a[1];}),totalBl=db.signals.filter(function(s){return s.result==='BLOCKED';}).length;
-  var h='<div class="grid2" style="margin-bottom:16px"><div class="card"><div class="card-title">Block Reason Breakdown</div>';
-  sortedR.slice(0,8).forEach(function(e){var pct6=totalBl?Math.round(e[1]/totalBl*100):0;h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>'+e[0]+'</span><span style="color:var(--gold)">'+e[1]+' ('+pct6+'%)</span></div><div class="progress"><div class="progress-bar" style="width:'+pct6+'%;background:var(--gold)"></div></div></div>';});
-  h+='</div><div class="card"><div class="card-title">Gap Distribution</div>';
-  var gmap={};db.signals.filter(function(s){return s.result==='OPENED';}).forEach(function(s){var g=(Math.floor(parseFloat(s.gap||0)*5)/5).toFixed(1);if(!gmap[g])gmap[g]=0;gmap[g]++;});
-  var gE=Object.entries(gmap).sort(function(a,b){return parseFloat(a[0])-parseFloat(b[0]);}),gMx=Math.max.apply(null,gE.map(function(e){return e[1];}).concat([1]));
-  gE.forEach(function(e){h+='<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--sub)">&ge;'+e[0]+'</span><span style="color:var(--green)">'+e[1]+'</span></div><div class="progress"><div class="progress-bar" style="width:'+Math.round(e[1]/gMx*100)+'%;background:var(--green)"></div></div></div>';});
-  h+='<div style="margin-top:12px;padding:10px;background:#fef3c7;border-radius:6px;font-size:11px;color:#92400e">Note: signals table is a partial record.</div></div></div>';
-  h+='<div class="card"><div class="card-title">Recent Signals (last 200)</div><div class="tbl-wrap"><table><thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Strong</th><th>Weak</th><th>Gap</th><th>Result</th><th>Block Reason</th></tr></thead><tbody>';
-  sigs.forEach(function(s){h+='<tr><td style="color:var(--sub)">'+(s.ts||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(s.symbol||'—')+'</td><td><span class="badge-'+(s.direction||'').toLowerCase()+'">'+(s.direction||'—')+'</span></td><td style="color:var(--green)">'+(s.strong_cur||'—')+'</td><td style="color:var(--red)">'+(s.weak_cur||'—')+'</td><td>'+parseFloat(s.gap||0).toFixed(4)+'</td><td><span class="'+(s.result==='OPENED'?'badge-buy':'badge-blocked')+'">'+(s.result||'—')+'</span></td><td style="color:var(--sub);font-size:11px">'+(s.block_reason||'—')+'</td></tr>';});
-  h+='</tbody></table></div></div>';return h;
-}
-function renderCompound() {
-  var days=db.daily.slice().sort(function(a,b){return a.date>b.date?1:-1;}),lastDay=days.length?days[days.length-1]:null,targetHit=days.filter(function(d){return d.target_hit;}).length,totalPnl=days.reduce(function(a,d){return a+parseFloat(d.daily_pnl||0);},0),startBal=days.length?parseFloat(days[0].start_balance||0):0,endBal=lastDay?parseFloat(lastDay.end_balance||0):0,growth=startBal?((endBal-startBal)/startBal*100):0;
-  var h='<div class="grid5" style="margin-bottom:16px"><div class="card"><div class="card-title">Current Day</div><div class="kpi-val cyan">'+(lastDay?lastDay.compound_day:'—')+'</div><div class="kpi-sub">'+(lastDay?lastDay.date:'')+'</div></div>';
-  h+='<div class="card"><div class="card-title">Balance</div><div class="kpi-val green">$'+(lastDay?endBal.toFixed(2):'—')+'</div><div class="kpi-sub">End of last session</div></div>';
-  h+='<div class="card"><div class="card-title">Growth</div><div class="kpi-val '+(growth>=0?'green':'red')+'">'+(growth>=0?'+':'')+growth.toFixed(1)+'%</div><div class="kpi-sub">Since Day 1</div></div>';
-  h+='<div class="card"><div class="card-title">Target Hit</div><div class="kpi-val gold">'+targetHit+'/'+days.length+'</div><div class="kpi-sub">'+(days.length?Math.round(targetHit/days.length*100):0)+'% rate</div></div>';
-  h+='<div class="card"><div class="card-title">Total P&amp;L</div><div class="kpi-val '+(totalPnl>=0?'green':'red')+'">'+fmtPnl(totalPnl)+'</div><div class="kpi-sub">Across '+days.length+' days</div></div></div>';
-  h+='<div class="card"><div class="card-title">Daily Log</div><div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Day</th><th>Start</th><th>End</th><th>P&amp;L</th><th>Target</th><th>Lot</th><th>Result</th></tr></thead><tbody>';
-  days.slice().reverse().forEach(function(d){var pnl7=parseFloat(d.daily_pnl||0);h+='<tr><td style="color:var(--sub)">'+d.date+'</td><td style="color:var(--cyan);font-weight:700">'+d.compound_day+'</td><td>$'+parseFloat(d.start_balance||0).toFixed(2)+'</td><td>$'+parseFloat(d.end_balance||0).toFixed(2)+'</td><td style="color:'+(pnl7>=0?'var(--green)':'var(--red)')+';font-weight:700">'+fmtPnl(pnl7)+'</td><td style="color:var(--gold)">$'+parseFloat(d.compound_target||0).toFixed(2)+'</td><td>'+(d.compound_lot||'—')+'</td><td><span class="pill '+(d.target_hit?'pill-g':'pill-r')+'">'+(d.target_hit?'HIT':'MISS')+'</span></td></tr>';});
-  h+='</tbody></table></div></div>';return h;
-}
-function renderSnapshot() {
-  var sigs=db.signals.filter(function(s){return s.currency_snapshot;}).slice(-50).reverse();
-  if(!sigs.length) return '<div class="empty"><div style="font-size:36px;margin-bottom:10px">📊</div><p>No snapshot data — requires EA v3.55+</p></div>';
-  var latest=sigs[0].currency_snapshot,snap=typeof latest==='string'?JSON.parse(latest):latest,curs=Object.entries(snap).sort(function(a,b){return a[1]-b[1];});
-  var h='<div class="card" style="margin-bottom:16px"><div class="card-title">Latest Snapshot — '+(sigs[0].ts||'').slice(0,16)+'</div><div class="snap-grid">';
-  curs.forEach(function(e){var cur=e[0],val=parseFloat(e[1]),col=val<-0.3?'var(--green)':val>0.3?'var(--red)':'var(--sub)',zone=val<-0.3?'STRONG':val>0.3?'WEAK':'NEUTRAL';h+='<div class="snap-item"><div class="snap-cur">'+cur+'</div><div class="snap-val" style="color:'+col+'">'+(val>0?'+':'')+val.toFixed(4)+'</div><div style="font-size:10px;color:'+col+';margin-top:2px">'+zone+'</div></div>';});
-  h+='</div></div>';
-  h+='<div class="card"><div class="card-title">Snapshot History</div><div class="tbl-wrap"><table><thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Result</th><th>EUR</th><th>GBP</th><th>AUD</th><th>NZD</th><th>USD</th><th>CAD</th><th>CHF</th><th>JPY</th></tr></thead><tbody>';
-  sigs.forEach(function(s){var sk=s.currency_snapshot?(typeof s.currency_snapshot==='string'?JSON.parse(s.currency_snapshot):s.currency_snapshot):{};function fv(v){if(v===undefined)return '—';var n7=parseFloat(v),col7=n7<-0.3?'var(--green)':n7>0.3?'var(--red)':'var(--sub)';return '<span style="color:'+col7+'">'+(n7>0?'+':'')+n7.toFixed(3)+'</span>';}h+='<tr><td style="color:var(--sub);font-size:11px">'+(s.ts||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(s.symbol||'—')+'</td><td><span class="badge-'+(s.direction||'').toLowerCase()+'">'+(s.direction||'—')+'</span></td><td><span class="'+(s.result==='OPENED'?'badge-buy':'badge-blocked')+'">'+(s.result||'—')+'</span></td>'+['EUR','GBP','AUD','NZD','USD','CAD','CHF','JPY'].map(function(c){return '<td>'+fv(sk[c])+'</td>';}).join('')+'</tr>';});
-  h+='</tbody></table></div></div>';return h;
-}
-function renderAnomalies() {
-  var h='<div style="margin-bottom:16px">';
-  if(!anomalies.length) h+='<div class="empty"><div style="font-size:36px;margin-bottom:10px">✅</div><p style="color:var(--green);font-weight:700">No anomalies detected</p></div>';
-  else anomalies.forEach(function(a){h+='<div class="anomaly-item '+(a.type==='warn'?'aw':'')+'\"><div class="anomaly-title">'+(a.type==='warn'?'⚠ ':'🚨 ')+a.title+'</div><div class="anomaly-desc">'+a.desc+'</div></div>';});
-  h+='</div><div class="card"><div class="card-title">All Health Checks</div>';
-  checks.forEach(function(c){h+='<div class="check-row"><div class="check-icon '+siCls(c.status)+'">'+siIcon(c.status)+'</div><div class="check-label">'+c.label+'</div><div class="check-detail">'+c.detail+'</div></div>';});
-  h+='</div>';return h;
-}
+function getStats(){var pos=db.posData;var wins=pos.filter(function(p){return parseFloat(p.net_profit||0)>0;});var losses=pos.filter(function(p){return parseFloat(p.net_profit||0)<0;});var totalPnl=pos.reduce(function(a,p){return a+parseFloat(p.net_profit||0);},0);var avgWin=wins.length?wins.reduce(function(a,p){return a+parseFloat(p.net_profit||0);},0)/wins.length:0;var avgLoss=losses.length?losses.reduce(function(a,p){return a+parseFloat(p.net_profit||0);},0)/losses.length:0;var rr=avgLoss?Math.abs(avgWin/avgLoss):0;var opened=db.signals.filter(function(s){return s.result==='OPENED';}).length;var lastDaily=db.daily.length?db.daily[db.daily.length-1]:null;var openPos=db.trades.filter(function(t){return t.event==='OPEN';}).length;return{closed:pos.length,wins:wins.length,losses:losses.length,wr:pos.length?wins.length/pos.length*100:0,totalPnl:totalPnl,avgWin:avgWin,avgLoss:avgLoss,rr:rr,opened:opened,blocked:db.signals.length-opened,positions:openPos,lastDaily:lastDaily};}
+function getPairStats(){var map={};db.posData.forEach(function(p){var s=p.symbol||'?';if(!map[s])map[s]={sym:s,trades:0,wins:0,losses:0,pnl:0,winPnl:0,lossPnl:0};map[s].trades++;var n=parseFloat(p.net_profit||0);map[s].pnl+=n;if(n>0){map[s].wins++;map[s].winPnl+=n;}else{map[s].losses++;map[s].lossPnl+=n;}});return Object.values(map).sort(function(a,b){return b.pnl-a.pnl;});}
+function getHourStats(){var map={};db.posData.forEach(function(p){if(!p.open_time)return;var h=new Date(p.open_time).getUTCHours();if(!map[h])map[h]={hour:h,trades:0,wins:0,pnl:0};map[h].trades++;var n=parseFloat(p.net_profit||0);map[h].pnl+=n;if(n>0)map[h].wins++;});var arr=[];for(var h=0;h<24;h++){if(map[h])arr.push(map[h]);}return arr;}
+function getExitStats(){var pos=db.posData;var tp=pos.filter(function(p){return p.close_reason==='tp';});var sl=pos.filter(function(p){return p.close_reason==='sl';});var ea=pos.filter(function(p){return p.close_reason==='ea';});var manual=pos.filter(function(p){return p.close_reason==='manual';});function avg(arr){return arr.length?arr.reduce(function(a,p){return a+parseFloat(p.net_profit||0);},0)/arr.length:0;}return{tp:tp.length,sl:sl.length,ea:ea.length,manual:manual.length,avgTp:avg(tp),avgSl:avg(sl),avgEa:avg(ea),avgManual:avg(manual),allPos:pos};}
 
-// Init CSEA accounts
+function runAnalysis(){checks=[];anomalies=[];insights=[];var s=getStats();var pairs=getPairStats();var hourData=getHourStats();var exits=getExitStats();var targetHitDays=db.daily.filter(function(d){return d.target_hit;}).length;var blockReasons={};db.signals.filter(function(sg){return sg.result==='BLOCKED';}).forEach(function(sg){var r=sg.block_reason||'Unknown';blockReasons[r]=(blockReasons[r]||0)+1;});var lastSig=db.signals.length?db.signals[db.signals.length-1]:null;var minsAgo=lastSig?Math.round((Date.now()-new Date(lastSig.ts))/60000):9999;checks.push({label:'Push Connectivity',detail:lastSig?'Last signal '+(minsAgo<60?minsAgo+'m':Math.round(minsAgo/60)+'h')+' ago':'No signals',status:minsAgo<180?'ok':minsAgo<600?'warn':'fail'});var openRate=db.signals.length?Math.round(s.opened/db.signals.length*100):0;checks.push({label:'Signal Open Rate',detail:s.opened+'/'+db.signals.length+' opened ('+openRate+'%)',status:openRate>3&&openRate<70?'ok':openRate===0?'fail':'warn'});checks.push({label:'Win Rate (positions)',detail:s.wins+'W/'+s.losses+'L = '+s.wr.toFixed(1)+'%',status:s.wr>=55?'ok':s.wr>=40?'warn':'fail'});checks.push({label:'Risk:Reward',detail:'Avg R:R = '+s.rr.toFixed(2)+' | Win $'+s.avgWin.toFixed(2)+' / Loss $'+s.avgLoss.toFixed(2),status:s.rr>=1?'ok':s.rr>=0.7?'warn':'fail'});var compRate=db.daily.length?Math.round(targetHitDays/db.daily.length*100):0;checks.push({label:'Compound Target Rate',detail:targetHitDays+'/'+db.daily.length+' days hit ('+compRate+'%)',status:compRate>=60?'ok':compRate>=40?'warn':'fail'});if(hourData.length>=3){var worstH=hourData.reduce(function(a,b){return b.pnl<a.pnl?b:a;});checks.push({label:'Worst Hour',detail:worstH.hour+':00 UTC ('+fmtPnl(worstH.pnl)+', '+worstH.trades+'t)',status:worstH.pnl<-15?'warn':'ok'});}checks.push({label:'Exit Mix',detail:'TP:'+exits.tp+' SL:'+exits.sl+' EA:'+exits.ea+' Manual:'+exits.manual,status:exits.tp>0?'ok':'warn'});var slDrag=exits.sl>0?Math.abs(exits.avgSl*exits.sl):0,tpGain=exits.tp>0?exits.avgTp*exits.tp:0;checks.push({label:'TP vs SL P&L balance',detail:'TP total '+fmtPnl(tpGain)+' vs SL total '+fmtPnl(-slDrag),status:tpGain>slDrag?'ok':tpGain>slDrag*0.7?'warn':'fail'});var bigLoss=db.posData.filter(function(p){return parseFloat(p.net_profit||0)<-20;});if(bigLoss.length)anomalies.push({type:'error',title:bigLoss.length+' Large Loss(es) >$20',desc:bigLoss.map(function(p){return p.symbol+' '+fmtPnl(p.net_profit)+' ('+p.close_reason+')';}).join(', ')});var worstPair=pairs.find(function(p){return p.trades>=3&&p.pnl<-10;});if(worstPair)anomalies.push({type:'warn',title:worstPair.sym+' underperforming',desc:worstPair.trades+'t, '+Math.round(worstPair.wins/worstPair.trades*100)+'%WR, P&L '+fmtPnl(worstPair.pnl)});if(hourData.length>0){var badHours=hourData.filter(function(h){return h.pnl<-15;});if(badHours.length)anomalies.push({type:'warn',title:'Problem hour(s): '+badHours.map(function(h){return h.hour+':00 UTC';}).join(', '),desc:badHours.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+', '+h.trades+'t, '+Math.round(h.wins/h.trades*100)+'%WR)';}).join(' · ')});}if(exits.manual>0&&exits.avgManual<0)anomalies.push({type:'warn',title:'Manual closes below breakeven',desc:exits.manual+' manual closes averaging '+fmtPnl(exits.avgManual)});if(s.closed>0){var perfTone=s.totalPnl>0&&s.wr>=55?'good':s.totalPnl<0||s.wr<40?'bad':'warn';insights.push({type:perfTone,label:'Performance Summary',text:'<strong>'+s.closed+' positions</strong> — <strong>'+s.wr.toFixed(1)+'% win rate</strong>, <strong>'+fmtPnl(s.totalPnl)+' net P&L</strong>. '+(s.rr>=1?'R:R '+s.rr.toFixed(2)+' — avg win $'+s.avgWin.toFixed(2)+' vs avg loss $'+Math.abs(s.avgLoss).toFixed(2)+'.':'R:R '+s.rr.toFixed(2)+' — losers currently larger than winners.')});}if(exits.tp+exits.sl>0){var slPct=Math.round(exits.sl/(exits.tp+exits.sl+exits.ea+exits.manual)*100);insights.push({type:slPct>65?'warn':'ok',label:'Exit Analysis',text:'TP hits: <strong>'+exits.tp+'</strong> (avg '+fmtPnl(exits.avgTp)+') · SL hits: <strong>'+exits.sl+'</strong> (avg '+fmtPnl(exits.avgSl)+') · EA closes: <strong>'+exits.ea+'</strong> · Manual: <strong>'+exits.manual+'</strong>. '+(slPct>65?'SL rate at '+slPct+'% — high but avg SL loss is controlled.':'Exit mix is healthy.')});}if(db.signals.length>0){var topBR=Object.entries(blockReasons).sort(function(a,b){return b[1]-a[1];})[0];var openR2=db.signals.length?Math.round(s.opened/db.signals.length*100):0;insights.push({type:openR2<10?'warn':'ok',label:'Signal Quality',text:'<strong>'+db.signals.length+' signals</strong> — '+openR2+'% opened, '+(100-openR2)+'% blocked. '+(topBR?'Most common block: <strong>'+topBR[0]+'</strong> ('+topBR[1]+' times). ':'')});}if(pairs.length>0){var best=pairs[0],worst=pairs[pairs.length-1];insights.push({type:worst.pnl<-15?'warn':'ok',label:'Pair Performance',text:'Best: <strong>'+best.sym+'</strong> ('+best.trades+'t, '+Math.round(best.wins/best.trades*100)+'%WR, '+fmtPnl(best.pnl)+').'+(pairs.length>1?' Weakest: <strong>'+worst.sym+'</strong> ('+worst.trades+'t, '+Math.round(worst.wins/worst.trades*100)+'%WR, '+fmtPnl(worst.pnl)+').':'')});}if(hourData.length>=3){var topH=hourData.slice().sort(function(a,b){return b.pnl-a.pnl;}).slice(0,3),botH=hourData.filter(function(h){return h.pnl<-10;});insights.push({type:botH.length?'warn':'ok',label:'Hour of Day Pattern',text:'Best UTC hours: <strong>'+topH.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+', '+h.trades+'t)';}).join(' · ')+'</strong>.'+(botH.length?' Problem hours: <strong>'+botH.map(function(h){return h.hour+':00 ('+fmtPnl(h.pnl)+')';}).join(', ')+'</strong>.':'')});}if(db.daily.length>0){var lastD=db.daily[db.daily.length-1],endBal=lastD?parseFloat(lastD.end_balance||0):0,startBal=db.daily[0]?parseFloat(db.daily[0].start_balance||0):0,growth=startBal?((endBal-startBal)/startBal*100):0;insights.push({type:compRate>=60?'good':compRate>=40?'warn':'bad',label:'Compound Progress',text:'Day <strong>'+(lastD&&lastD.compound_day||'?')+'</strong>, balance <strong>$'+endBal.toFixed(2)+'</strong>. Target hit <strong>'+targetHitDays+'/'+db.daily.length+' days ('+compRate+'%)</strong>.'+(startBal?' Account grown <strong>'+(growth>=0?'+':'')+growth.toFixed(1)+'%</strong> since Day 1.':'')});}var recs=[];if(s.wr<55)recs.push('Win rate '+s.wr.toFixed(1)+'% — below 55% target. Consider raising InpMinStrengthGap.');if(s.rr<1)recs.push('R:R '+s.rr.toFixed(2)+' below 1:1 — review ADR-based SL/TP settings.');if(exits.manual>0&&exits.avgManual<0)recs.push('Stop manual closing — EA-managed exits outperforming.');if(hourData.length>0){var badH2=hourData.filter(function(h){return h.pnl<-10;});if(badH2.length)recs.push('Problem hours '+badH2.map(function(h){return h.hour+':00 UTC';}).join(', ')+' — flag for Phase 3 time filter.');}var worstPR=pairs.find(function(p){return p.trades>=3&&p.pnl<-10;});if(worstPR)recs.push(worstPR.sym+' dragging — flag for Phase 3 pair review.');if(recs.length===0)recs.push('Looking healthy — maintain current settings and accumulate more trades before changes.');insights.push({type:'blue',label:'Actionable Recommendations',recs:recs});}
+
+function setTab(id,btn){activeTab=id;document.querySelectorAll('#tabBar .tab').forEach(function(t){t.classList.remove('active');});if(btn)btn.classList.add('active');else{var map=['overview','analysis','hour','pairs','exits','positions','signals','compound','snapshot','anomalies'];var idx=map.indexOf(id);var tabs=document.querySelectorAll('#tabBar .tab');if(idx>=0)tabs[idx].classList.add('active');}render();}
+function render(){if(!db.posData.length&&!db.signals.length)return;var c=document.getElementById('mainContent');if(activeTab==='overview')c.innerHTML=renderOverview();else if(activeTab==='analysis')c.innerHTML=renderAnalysis();else if(activeTab==='hour')c.innerHTML=renderHourOfDay();else if(activeTab==='pairs')c.innerHTML=renderPairPerformance();else if(activeTab==='exits')c.innerHTML=renderExitAnalysis();else if(activeTab==='positions')c.innerHTML=renderPositions();else if(activeTab==='signals')c.innerHTML=renderSignals();else if(activeTab==='compound')c.innerHTML=renderCompound();else if(activeTab==='snapshot')c.innerHTML=renderSnapshot();else if(activeTab==='anomalies')c.innerHTML=renderAnomalies();}
+
+function renderOverview(){var s=getStats(),passC=checks.filter(function(c){return c.status==='ok';}).length,hPct=checks.length?Math.round(passC/checks.length*100):0,hCol=hPct>=80?'var(--green)':hPct>=50?'var(--gold)':'var(--red)',exits=getExitStats();var h='<div class="grid5">';h+='<div class="card"><div class="card-title">Net P&L <span class="src-badge">positions</span></div><div class="kpi-val '+(s.totalPnl>=0?'green':'red')+'">'+fmtPnl(s.totalPnl)+'</div><div class="kpi-sub">'+s.closed+' closed positions</div></div>';h+='<div class="card"><div class="card-title">Win Rate</div><div class="kpi-val '+(s.wr>=55?'green':s.wr>=40?'gold':'red')+'">'+s.wr.toFixed(1)+'%</div><div class="kpi-sub">'+s.wins+'W / '+s.losses+'L</div></div>';h+='<div class="card"><div class="card-title">Risk:Reward</div><div class="kpi-val '+(s.rr>=1?'green':'red')+'">'+s.rr.toFixed(2)+'</div><div class="kpi-sub">Avg win '+fmtPnl(s.avgWin)+'</div></div>';h+='<div class="card"><div class="card-title">Open Positions</div><div class="kpi-val cyan">'+s.positions+'</div><div class="kpi-sub">'+db.signals.length+' signals loaded</div></div>';h+='<div class="card"><div class="card-title">System Health</div><div class="kpi-val" style="color:'+hCol+'">'+hPct+'%</div><div class="kpi-sub">'+passC+'/'+checks.length+' checks pass</div></div></div>';h+='<div class="grid2"><div class="card"><div class="card-title">Health Checks</div>';checks.forEach(function(c){h+='<div class="check-row"><div class="check-icon '+siCls(c.status)+'">'+siIcon(c.status)+'</div><div class="check-label">'+c.label+'</div><div class="check-detail">'+c.detail+'</div></div>';});h+='</div><div class="card"><div class="card-title">Session Summary</div><div class="grid2" style="gap:10px;margin-bottom:12px">';h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--blue)">'+db.signals.length+'</div><div style="font-size:11px;color:var(--sub)">Signals Loaded</div></div>';h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--green)">'+s.closed+'</div><div style="font-size:11px;color:var(--sub)">Positions (clean)</div></div>';h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--green)">'+exits.tp+'</div><div style="font-size:11px;color:var(--sub)">TP Hits</div></div>';h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:var(--red)">'+exits.sl+'</div><div style="font-size:11px;color:var(--sub)">SL Hits</div></div></div>';if(s.lastDaily){var pv=parseFloat(s.lastDaily.daily_pnl||0);h+='<div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:11px;color:var(--sub);margin-bottom:8px">LAST DAILY — '+s.lastDaily.date+'</div><div style="display:flex;gap:16px;flex-wrap:wrap"><div><div style="font-size:11px;color:var(--sub)">Day</div><div style="font-weight:700;color:var(--cyan)">'+s.lastDaily.compound_day+'</div></div><div><div style="font-size:11px;color:var(--sub)">P&L</div><div style="font-weight:700;color:'+(pv>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(pv)+'</div></div><div><div style="font-size:11px;color:var(--sub)">Balance</div><div style="font-weight:700">$'+parseFloat(s.lastDaily.end_balance||0).toFixed(2)+'</div></div><div><div style="font-size:11px;color:var(--sub)">Target</div><div style="font-weight:700;color:'+(s.lastDaily.target_hit?'var(--green)':'var(--sub)')+'">'+( s.lastDaily.target_hit?'HIT':'MISS')+'</div></div></div></div>';}h+='<button class="btn-smart" style="width:100%" onclick="setTab(\'analysis\',null);render()">Smart Analysis</button></div></div>';return h;}
+function renderAnalysis(){var passC=checks.filter(function(c){return c.status==='ok';}).length,hPct=checks.length?Math.round(passC/checks.length*100):0,hCol=hPct>=80?'var(--green)':hPct>=50?'var(--gold)':'var(--red)',recI=null,mainI=[];insights.forEach(function(i){if(i.recs)recI=i;else mainI.push(i);});var h='<div class="analysis-panel"><div class="analysis-header"><div class="analysis-icon">🧠</div><div><div class="analysis-title">Smart Analysis Report</div><div class="analysis-subtitle">Powered by positions table — real net P&L including commission &amp; swap</div></div><div style="margin-left:auto"><div class="score-ring"><div class="score-circle" style="color:'+hCol+';border-color:'+hCol+'">'+hPct+'%</div><div><div style="font-size:12px;font-weight:700">System Health</div><div style="font-size:11px;color:var(--sub)">'+passC+'/'+checks.length+' checks passing</div></div></div></div></div>';mainI.forEach(function(i){var cls=i.type==='good'?'good':i.type==='bad'?'bad':i.type==='warn'?'warn':'';h+='<div class="insight-block '+cls+'"><div class="insight-label">'+i.label+'</div><div class="insight-text">'+i.text+'</div></div>';});if(recI){h+='<div class="insight-block" style="border-left-color:var(--cyan)"><div class="insight-label" style="color:var(--cyan)">'+recI.label+'</div><ul class="rec-list">';recI.recs.forEach(function(r){h+='<li>'+r+'</li>';});h+='</ul></div>';}h+='</div>';if(anomalies.length){h+='<div class="card"><div class="card-title">Active Anomalies ('+anomalies.length+')</div>';anomalies.forEach(function(a){h+='<div class="anomaly-item '+(a.type==='warn'?'aw':'')+'"><div class="anomaly-title">'+(a.type==='warn'?'⚠ ':'🚨 ')+a.title+'</div><div class="anomaly-desc">'+a.desc+'</div></div>';});h+='</div>';}else h+='<div class="card" style="text-align:center;padding:20px"><span style="color:var(--green);font-size:13px;font-weight:700">No anomalies detected</span></div>';return h;}
+function renderHourOfDay(){var hourData=getHourStats();if(!hourData.length)return'<div class="empty"><p>No positions in selected date range</p></div>';var maxAbs=Math.max.apply(null,hourData.map(function(h){return Math.abs(h.pnl);}));if(maxAbs===0)maxAbs=1;var bestH=hourData.reduce(function(a,b){return b.pnl>a.pnl?b:a;}),worstH=hourData.reduce(function(a,b){return b.pnl<a.pnl?b:a;}),totalTrades=hourData.reduce(function(a,h){return a+h.trades;},0),totalPnl=hourData.reduce(function(a,h){return a+h.pnl;},0);var h='<div class="grid4" style="margin-bottom:16px">';h+='<div class="card"><div class="card-title">Best Hour (UTC)</div><div class="kpi-val green">'+bestH.hour+':00</div><div class="kpi-sub">'+fmtPnl(bestH.pnl)+' · '+bestH.trades+'t · '+Math.round(bestH.wins/bestH.trades*100)+'%WR</div></div>';h+='<div class="card"><div class="card-title">Worst Hour (UTC)</div><div class="kpi-val red">'+worstH.hour+':00</div><div class="kpi-sub">'+fmtPnl(worstH.pnl)+' · '+worstH.trades+'t · '+Math.round(worstH.wins/worstH.trades*100)+'%WR</div></div>';h+='<div class="card"><div class="card-title">Active Hours</div><div class="kpi-val cyan">'+hourData.length+'</div><div class="kpi-sub">of 24 · '+totalTrades+' positions</div></div>';h+='<div class="card"><div class="card-title">Total P&L</div><div class="kpi-val '+(totalPnl>=0?'green':'red')+'">'+fmtPnl(totalPnl)+'</div><div class="kpi-sub">across all hours</div></div></div>';h+='<div class="card" style="margin-bottom:16px"><div class="card-title">P&L by Hour Opened (UTC)</div><div class="hour-chart">';for(var hh=0;hh<24;hh++){var hd=null;for(var xx=0;xx<hourData.length;xx++){if(hourData[xx].hour===hh){hd=hourData[xx];break;}}var lbl=(hh<10?'0':'')+hh+':00';h+='<div class="hour-row"><div class="hour-label">'+lbl+'</div><div class="hour-bar-wrap">';if(hd){var pct2=Math.max(2,Math.round(Math.abs(hd.pnl)/maxAbs*75)),col2=hd.pnl>=0?'var(--green)':'var(--red)',wr2=Math.round(hd.wins/hd.trades*100);h+='<div class="hour-bar" style="width:'+pct2+'%;background:'+col2+'">'+(pct2>15?fmtPnl(hd.pnl):'')+'</div><div class="hour-stats">'+fmtPnl(hd.pnl)+' | '+hd.trades+'t | '+wr2+'%WR</div>';}else h+='<div style="font-size:11px;color:#cbd5e1">— no positions</div>';h+='</div></div>';}h+='</div></div>';var goodH=hourData.filter(function(x){return x.pnl>0;}).sort(function(a,b){return b.pnl-a.pnl;}),badH=hourData.filter(function(x){return x.pnl<0;}).sort(function(a,b){return a.pnl-b.pnl;});h+='<div class="card"><div class="card-title">Hour Summary</div>';if(goodH.length)h+='<div style="margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--green)">WINNING: </span>'+goodH.map(function(x){return'<strong>'+x.hour+':00</strong> ('+fmtPnl(x.pnl)+', '+x.trades+'t, '+Math.round(x.wins/x.trades*100)+'%WR)';}).join(' · ')+'</div>';if(badH.length)h+='<div style="margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--red)">PROBLEM: </span>'+badH.map(function(x){return'<strong>'+x.hour+':00</strong> ('+fmtPnl(x.pnl)+', '+x.trades+'t, '+Math.round(x.wins/x.trades*100)+'%WR)';}).join(' · ')+'</div>';h+='<div style="font-size:11px;color:var(--sub);padding-top:8px;border-top:1px solid var(--border)">UTC+3 = broker chart time · Patterns strengthen after 50+ positions.</div></div>';return h;}
+function renderPairPerformance(){var pairs=getPairStats();if(!pairs.length)return'<div class="empty"><p>No positions yet</p></div>';var maxAbs=Math.max.apply(null,pairs.map(function(p){return Math.abs(p.pnl);}));if(maxAbs===0)maxAbs=1;var profPairs=pairs.filter(function(p){return p.pnl>0;}).length,totalT=pairs.reduce(function(a,p){return a+p.trades;},0);var h='<div class="grid4" style="margin-bottom:16px"><div class="card"><div class="card-title">Pairs Traded</div><div class="kpi-val">'+pairs.length+'</div><div class="kpi-sub">'+profPairs+' profitable / '+(pairs.length-profPairs)+' losing</div></div>';h+='<div class="card"><div class="card-title">Best Pair</div><div class="kpi-val green">'+pairs[0].sym+'</div><div class="kpi-sub">'+fmtPnl(pairs[0].pnl)+' · '+Math.round(pairs[0].wins/pairs[0].trades*100)+'%WR</div></div>';h+='<div class="card"><div class="card-title">Worst Pair</div><div class="kpi-val red">'+pairs[pairs.length-1].sym+'</div><div class="kpi-sub">'+fmtPnl(pairs[pairs.length-1].pnl)+' · '+Math.round(pairs[pairs.length-1].wins/pairs[pairs.length-1].trades*100)+'%WR</div></div>';h+='<div class="card"><div class="card-title">Total Positions</div><div class="kpi-val">'+totalT+'</div><div class="kpi-sub">across '+pairs.length+' pairs</div></div></div>';h+='<div class="card" style="margin-bottom:16px"><div class="card-title">Net P&L by Pair</div>';pairs.forEach(function(p){var wr3=Math.round(p.wins/p.trades*100),pct3=Math.max(2,Math.round(Math.abs(p.pnl)/maxAbs*100));h+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:12px;font-weight:700">'+p.sym+'</span><div style="display:flex;gap:12px"><span style="font-size:11px;color:var(--sub)">'+p.trades+'t</span><span style="font-size:11px;color:var(--sub)">'+wr3+'%WR</span><span style="font-size:12px;font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</span></div></div><div class="progress"><div class="progress-bar" style="width:'+pct3+'%;background:'+(p.pnl>=0?'var(--green)':'var(--red)')+'"></div></div></div>';});h+='</div>';h+='<div class="card"><div class="card-title">Pair Detail Table</div><div class="tbl-wrap"><table><thead><tr><th>Pair</th><th>Trades</th><th>Wins</th><th>Losses</th><th>Win Rate</th><th>Net P&L</th><th>Avg Win</th><th>Avg Loss</th><th>R:R</th></tr></thead><tbody>';pairs.forEach(function(p){var wr4=Math.round(p.wins/p.trades*100),avgW4=p.wins?p.winPnl/p.wins:0,avgL4=p.losses?p.lossPnl/p.losses:0,rr4=avgL4?Math.abs(avgW4/avgL4):(avgW4>0?99:0);h+='<tr><td style="font-weight:700;color:var(--blue)">'+p.sym+'</td><td>'+p.trades+'</td><td style="color:var(--green)">'+p.wins+'</td><td style="color:var(--red)">'+p.losses+'</td><td><span style="font-weight:700;color:'+(wr4>=55?'var(--green)':'var(--red)')+'">'+wr4+'%</span></td><td style="font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</td><td style="color:var(--green)">'+(p.wins?fmtPnl(avgW4):'—')+'</td><td style="color:var(--red)">'+(p.losses?fmtPnl(avgL4):'—')+'</td><td style="color:'+(rr4>=1?'var(--green)':'var(--gold)')+'">'+( p.losses?rr4.toFixed(2):'∞')+'</td></tr>';});h+='</tbody></table></div></div>';return h;}
+function renderExitAnalysis(){var exits=getExitStats(),total=exits.tp+exits.sl+exits.ea+exits.manual;if(total===0)return'<div class="empty"><p>No closed positions yet</p></div>';var h='<div class="grid4" style="margin-bottom:16px"><div class="card"><div class="card-title">TP Hits</div><div class="kpi-val green">'+exits.tp+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgTp)+'</div></div><div class="card"><div class="card-title">SL Hits</div><div class="kpi-val red">'+exits.sl+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgSl)+'</div></div><div class="card"><div class="card-title">EA Closes</div><div class="kpi-val cyan">'+exits.ea+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgEa)+'</div></div><div class="card"><div class="card-title">Manual Closes</div><div class="kpi-val gold">'+exits.manual+'</div><div class="kpi-sub">Avg '+fmtPnl(exits.avgManual)+'</div></div></div>';h+='<div class="card" style="margin-bottom:16px"><div class="card-title">Exit Distribution</div>';var bars=[{label:'TP Hits',count:exits.tp,col:'var(--green)',avg:exits.avgTp},{label:'SL Hits',count:exits.sl,col:'var(--red)',avg:exits.avgSl},{label:'EA Close',count:exits.ea,col:'var(--cyan)',avg:exits.avgEa},{label:'Manual Close',count:exits.manual,col:'var(--gold)',avg:exits.avgManual}];bars.filter(function(b){return b.count>0;}).forEach(function(b){var pct4=Math.round(b.count/total*100);h+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;font-weight:700">'+b.label+'</span><span style="font-size:12px;color:'+b.col+'">'+b.count+' ('+pct4+'%) · avg '+fmtPnl(b.avg)+'</span></div><div class="progress" style="height:10px"><div class="progress-bar" style="width:'+pct4+'%;background:'+b.col+'"></div></div></div>';});h+='</div>';h+='<div class="card"><div class="card-title">Position Log (most recent 60)</div><div class="tbl-wrap"><table><thead><tr><th>Opened</th><th>Closed</th><th>Symbol</th><th>Dir</th><th>Lot</th><th>Net P&L</th><th>Exit</th><th>Commission</th></tr></thead><tbody>';exits.allPos.slice().reverse().slice(0,60).forEach(function(p){var n5=parseFloat(p.net_profit||0),ec5,et5;if(p.close_reason==='tp'){et5='TP Hit';ec5='exit-tp';}else if(p.close_reason==='sl'){et5='SL Hit';ec5='exit-sl';}else if(p.close_reason==='ea'){et5='EA Close';ec5='exit-ea';}else{et5='Manual';ec5='exit-manual';}h+='<tr><td style="color:var(--sub);font-size:11px">'+(p.open_time||'').slice(0,16)+'</td><td style="color:var(--sub);font-size:11px">'+(p.close_time||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(p.symbol||'—')+'</td><td><span class="badge-'+(p.direction||'').toLowerCase()+'">'+(p.direction||'—')+'</span></td><td>'+(p.lot||'—')+'</td><td style="font-weight:700;color:'+(n5>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(n5)+'</td><td><span class="'+ec5+'">'+et5+'</span></td><td style="color:var(--sub);font-size:11px">'+parseFloat(p.commission||0).toFixed(2)+'</td></tr>';});h+='</tbody></table></div></div>';return h;}
+function renderPositions(){var pos=db.posData.slice().reverse(),pairs6=getPairStats(),maxAbs6=Math.max.apply(null,pairs6.map(function(p){return Math.abs(p.pnl);}).concat([1]));var h='<div class="grid2" style="margin-bottom:16px"><div class="card"><div class="card-title">P&L by Pair</div>';pairs6.slice(0,12).forEach(function(p){var wr5=Math.round(p.wins/p.trades*100),pct5=Math.max(2,Math.round(Math.abs(p.pnl)/maxAbs6*100));h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px"><span style="font-size:12px;font-weight:700">'+p.sym+'</span><div style="display:flex;gap:8px"><span style="font-size:11px;color:var(--sub)">'+wr5+'%WR</span><span style="font-size:12px;font-weight:700;color:'+(p.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(p.pnl)+'</span></div></div><div class="progress"><div class="progress-bar" style="width:'+pct5+'%;background:'+(p.pnl>=0?'var(--green)':'var(--red)')+'"></div></div></div>';});h+='</div><div class="card"><div class="card-title">Open Positions</div><div class="tbl-wrap" style="max-height:280px"><table><thead><tr><th>Symbol</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Opened</th></tr></thead><tbody>';if(db.trades.length){db.trades.forEach(function(t){h+='<tr><td style="color:var(--blue);font-weight:700">'+(t.symbol||'—')+'</td><td><span class="badge-'+(t.direction||'').toLowerCase()+'">'+(t.direction||'—')+'</span></td><td>'+(t.lot||'—')+'</td><td>'+parseFloat(t.entry||0).toFixed(5)+'</td><td style="color:var(--sub);font-size:11px">'+(t.ts||'').slice(0,16)+'</td></tr>';});}else h+='<tr><td colspan="5" style="color:var(--sub);text-align:center">No open positions</td></tr>';h+='</tbody></table></div></div></div>';h+='<div class="card"><div class="card-title">All Positions ('+pos.length+' total)</div><div class="tbl-wrap"><table><thead><tr><th>Opened</th><th>Symbol</th><th>Dir</th><th>Lot</th><th>Net P&L</th><th>Gross</th><th>Comm</th><th>Exit</th><th>Close Time</th></tr></thead><tbody>';pos.slice(0,100).forEach(function(p){var n6=parseFloat(p.net_profit||0),ec6=p.close_reason==='tp'?'exit-tp':p.close_reason==='sl'?'exit-sl':p.close_reason==='ea'?'exit-ea':'exit-manual';h+='<tr><td style="color:var(--sub);font-size:11px">'+(p.open_time||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(p.symbol||'—')+'</td><td><span class="badge-'+(p.direction||'').toLowerCase()+'">'+(p.direction||'—')+'</span></td><td>'+(p.lot||'—')+'</td><td style="font-weight:700;color:'+(n6>=0?'var(--green)':'var(--red)')+'">'+fmtPnl(n6)+'</td><td style="color:var(--sub)">'+parseFloat(p.profit||0).toFixed(2)+'</td><td style="color:var(--sub)">'+parseFloat(p.commission||0).toFixed(2)+'</td><td><span class="'+ec6+'">'+(p.close_reason||'—')+'</span></td><td style="color:var(--sub);font-size:11px">'+(p.close_time||'').slice(0,16)+'</td></tr>';});h+='</tbody></table></div></div>';return h;}
+function renderSignals(){var sigs=db.signals.slice().reverse().slice(0,200),blockReasons={};db.signals.filter(function(s){return s.result==='BLOCKED';}).forEach(function(s){var r=s.block_reason||'Unknown';blockReasons[r]=(blockReasons[r]||0)+1;});var sortedR=Object.entries(blockReasons).sort(function(a,b){return b[1]-a[1];}),totalBl=db.signals.filter(function(s){return s.result==='BLOCKED';}).length;var h='<div class="grid2" style="margin-bottom:16px"><div class="card"><div class="card-title">Block Reason Breakdown</div>';sortedR.slice(0,8).forEach(function(e){var pct6=totalBl?Math.round(e[1]/totalBl*100):0;h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>'+e[0]+'</span><span style="color:var(--gold)">'+e[1]+' ('+pct6+'%)</span></div><div class="progress"><div class="progress-bar" style="width:'+pct6+'%;background:var(--gold)"></div></div></div>';});h+='</div><div class="card"><div class="card-title">Gap Distribution</div>';var gmap={};db.signals.filter(function(s){return s.result==='OPENED';}).forEach(function(s){var g=(Math.floor(parseFloat(s.gap||0)*5)/5).toFixed(1);if(!gmap[g])gmap[g]=0;gmap[g]++;});var gE=Object.entries(gmap).sort(function(a,b){return parseFloat(a[0])-parseFloat(b[0]);}),gMx=Math.max.apply(null,gE.map(function(e){return e[1];}).concat([1]));gE.forEach(function(e){h+='<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--sub)">&ge;'+e[0]+'</span><span style="color:var(--green)">'+e[1]+'</span></div><div class="progress"><div class="progress-bar" style="width:'+Math.round(e[1]/gMx*100)+'%;background:var(--green)"></div></div></div>';});h+='<div style="margin-top:12px;padding:10px;background:#fef3c7;border-radius:6px;font-size:11px;color:#92400e">Note: signals table is a partial record.</div></div></div>';h+='<div class="card"><div class="card-title">Recent Signals (last 200)</div><div class="tbl-wrap"><table><thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Strong</th><th>Weak</th><th>Gap</th><th>Result</th><th>Block Reason</th></tr></thead><tbody>';sigs.forEach(function(s){h+='<tr><td style="color:var(--sub)">'+(s.ts||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(s.symbol||'—')+'</td><td><span class="badge-'+(s.direction||'').toLowerCase()+'">'+(s.direction||'—')+'</span></td><td style="color:var(--green)">'+(s.strong_cur||'—')+'</td><td style="color:var(--red)">'+(s.weak_cur||'—')+'</td><td>'+parseFloat(s.gap||0).toFixed(4)+'</td><td><span class="'+(s.result==='OPENED'?'badge-buy':'badge-blocked')+'">'+(s.result||'—')+'</span></td><td style="color:var(--sub);font-size:11px">'+(s.block_reason||'—')+'</td></tr>';});h+='</tbody></table></div></div>';return h;}
+function renderCompound(){var days=db.daily.slice().sort(function(a,b){return a.date>b.date?1:-1;}),lastDay=days.length?days[days.length-1]:null,targetHit=days.filter(function(d){return d.target_hit;}).length,totalPnl=days.reduce(function(a,d){return a+parseFloat(d.daily_pnl||0);},0),startBal=days.length?parseFloat(days[0].start_balance||0):0,endBal=lastDay?parseFloat(lastDay.end_balance||0):0,growth=startBal?((endBal-startBal)/startBal*100):0;var h='<div class="grid5" style="margin-bottom:16px"><div class="card"><div class="card-title">Current Day</div><div class="kpi-val cyan">'+(lastDay?lastDay.compound_day:'—')+'</div><div class="kpi-sub">'+(lastDay?lastDay.date:'')+'</div></div>';h+='<div class="card"><div class="card-title">Balance</div><div class="kpi-val green">$'+(lastDay?endBal.toFixed(2):'—')+'</div><div class="kpi-sub">End of last session</div></div>';h+='<div class="card"><div class="card-title">Growth</div><div class="kpi-val '+(growth>=0?'green':'red')+'">'+(growth>=0?'+':'')+growth.toFixed(1)+'%</div><div class="kpi-sub">Since Day 1</div></div>';h+='<div class="card"><div class="card-title">Target Hit</div><div class="kpi-val gold">'+targetHit+'/'+days.length+'</div><div class="kpi-sub">'+(days.length?Math.round(targetHit/days.length*100):0)+'% rate</div></div>';h+='<div class="card"><div class="card-title">Total P&L</div><div class="kpi-val '+(totalPnl>=0?'green':'red')+'">'+fmtPnl(totalPnl)+'</div><div class="kpi-sub">Across '+days.length+' days</div></div></div>';h+='<div class="card"><div class="card-title">Daily Log</div><div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Day</th><th>Start</th><th>End</th><th>P&L</th><th>Target</th><th>Lot</th><th>Result</th></tr></thead><tbody>';days.slice().reverse().forEach(function(d){var pnl7=parseFloat(d.daily_pnl||0);h+='<tr><td style="color:var(--sub)">'+d.date+'</td><td style="color:var(--cyan);font-weight:700">'+d.compound_day+'</td><td>$'+parseFloat(d.start_balance||0).toFixed(2)+'</td><td>$'+parseFloat(d.end_balance||0).toFixed(2)+'</td><td style="color:'+(pnl7>=0?'var(--green)':'var(--red)')+';font-weight:700">'+fmtPnl(pnl7)+'</td><td style="color:var(--gold)">$'+parseFloat(d.compound_target||0).toFixed(2)+'</td><td>'+(d.compound_lot||'—')+'</td><td><span class="pill '+(d.target_hit?'pill-g':'pill-r')+'">'+(d.target_hit?'HIT':'MISS')+'</span></td></tr>';});h+='</tbody></table></div></div>';return h;}
+function renderSnapshot(){var sigs=db.signals.filter(function(s){return s.currency_snapshot;}).slice(-50).reverse();if(!sigs.length)return'<div class="empty"><div style="font-size:36px;margin-bottom:10px">📊</div><p>No snapshot data — requires EA v3.55+</p></div>';var latest=sigs[0].currency_snapshot,snap=typeof latest==='string'?JSON.parse(latest):latest,curs=Object.entries(snap).sort(function(a,b){return a[1]-b[1];});var h='<div class="card" style="margin-bottom:16px"><div class="card-title">Latest Snapshot — '+(sigs[0].ts||'').slice(0,16)+'</div><div class="snap-grid">';curs.forEach(function(e){var cur=e[0],val=parseFloat(e[1]),col=val<-0.3?'var(--green)':val>0.3?'var(--red)':'var(--sub)',zone=val<-0.3?'STRONG':val>0.3?'WEAK':'NEUTRAL';h+='<div class="snap-item"><div class="snap-cur">'+cur+'</div><div class="snap-val" style="color:'+col+'">'+(val>0?'+':'')+val.toFixed(4)+'</div><div style="font-size:10px;color:'+col+';margin-top:2px">'+zone+'</div></div>';});h+='</div></div>';h+='<div class="card"><div class="card-title">Snapshot History</div><div class="tbl-wrap"><table><thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Result</th><th>EUR</th><th>GBP</th><th>AUD</th><th>NZD</th><th>USD</th><th>CAD</th><th>CHF</th><th>JPY</th></tr></thead><tbody>';sigs.forEach(function(s){var sk=s.currency_snapshot?(typeof s.currency_snapshot==='string'?JSON.parse(s.currency_snapshot):s.currency_snapshot):{};function fv(v){if(v===undefined)return'—';var n7=parseFloat(v),col7=n7<-0.3?'var(--green)':n7>0.3?'var(--red)':'var(--sub)';return'<span style="color:'+col7+'">'+(n7>0?'+':'')+n7.toFixed(3)+'</span>';}h+='<tr><td style="color:var(--sub);font-size:11px">'+(s.ts||'').slice(0,16)+'</td><td style="color:var(--blue);font-weight:700">'+(s.symbol||'—')+'</td><td><span class="badge-'+(s.direction||'').toLowerCase()+'">'+(s.direction||'—')+'</span></td><td><span class="'+(s.result==='OPENED'?'badge-buy':'badge-blocked')+'">'+(s.result||'—')+'</span></td>'+['EUR','GBP','AUD','NZD','USD','CAD','CHF','JPY'].map(function(c){return'<td>'+fv(sk[c])+'</td>';}).join('')+'</tr>';});h+='</tbody></table></div></div>';return h;}
+function renderAnomalies(){var h='<div style="margin-bottom:16px">';if(!anomalies.length)h+='<div class="empty"><div style="font-size:36px;margin-bottom:10px">✅</div><p style="color:var(--green);font-weight:700">No anomalies detected</p></div>';else anomalies.forEach(function(a){h+='<div class="anomaly-item '+(a.type==='warn'?'aw':'')+'"><div class="anomaly-title">'+(a.type==='warn'?'⚠ ':'🚨 ')+a.title+'</div><div class="anomaly-desc">'+a.desc+'</div></div>';});h+='</div><div class="card"><div class="card-title">All Health Checks</div>';checks.forEach(function(c){h+='<div class="check-row"><div class="check-icon '+siCls(c.status)+'">'+siIcon(c.status)+'</div><div class="check-label">'+c.label+'</div><div class="check-detail">'+c.detail+'</div></div>';});h+='</div>';return h;}
+
+// Init
 (async function(){
   try {
-    // Set default To date to today
-    var now = new Date();
-    document.getElementById('gtmoTo').value = now.toISOString().slice(0,10);
+    // Default GTMO date range — last 7 days
+    document.getElementById('gtmoTo').value   = todayStr();
+    document.getElementById('gtmoFrom').value = sevenDaysAgoStr();
 
     var accts=await sb('accounts','select=id,label,account_number&strategy=eq.CSEA&order=label');
     var sel=document.getElementById('acctSelect');
