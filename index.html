@@ -409,9 +409,8 @@ async function loadGtmoData() {
     var orderFrom       = fromDate < '2025-12-01' ? fromDate : '2025-12-01';
     var orderDateFilter = '&close_time=gte.' + orderFrom + 'T00:00:00&close_time=lte.' + toDate + 'T23:59:59';
 
-    // GP trades fallback — for historical sessions before bot.py v6.62 (before 30 Apr 2026)
-    // GP trades fallback — AurumAI Gold only filtered by magic 84011019
-    // No date cutoff — magic number is the only filter needed
+    // GP trades — AurumAI Gold only, filtered by magic 84011019
+    // CSEAPlatformSync v1.3 writes real magic from MT4 — clean data from 30 Apr 2026
     var needsGPTradesFallback = (isGPOnly || isAll);
     var gpTradesFilter = '&account_id=eq.' + GP_ACCT_ID
       + '&symbol=eq.XAUUSD'
