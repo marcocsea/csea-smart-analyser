@@ -479,8 +479,10 @@ function ordersFor(aId) {
 // ── LOT CYCLING CALC ────────────────────────────────────────────
 function calcCycleLevel(balance, threshold, numEntries) {
   var totalVirtual = Math.floor(balance / threshold);
+  // Each entry unlocks one at a time — E1 always active (minimum 1)
+  var unlocked = Math.max(1, Math.min(totalVirtual, numEntries));
   if(totalVirtual < numEntries) {
-    return {unlockedEntries: totalVirtual, baseLot: 0.01, cycle: 0, nextThreshold: threshold * numEntries, progress: (balance / (threshold * numEntries)) * 100};
+    return {unlockedEntries: unlocked, baseLot: 0.01, cycle: 0, nextThreshold: threshold * numEntries, progress: (balance / (threshold * numEntries)) * 100};
   }
   var extraVirtual = totalVirtual - numEntries;
   var fullCycles   = Math.floor(extraVirtual / numEntries);
