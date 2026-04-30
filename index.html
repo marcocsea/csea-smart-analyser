@@ -879,12 +879,14 @@ function buildCycleActivityMap(acct, sessions) {
     var h2 = '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">';
     for(var i=1;i<=8;i++) {
       var key = 'E'+i;
-      var active = i <= unlocked || (cycle > 0 && i <= numE);
-      var isCycle = cycle > 0 && active;
+      var isUnlocked = cycle > 0 ? (i <= numE) : (i <= unlocked);
+      var isCycling  = cycle > 0 && isUnlocked;
+      var isRunner   = i > numE;
       var bg, col;
-      if(!active) { bg='#f1f5f9'; col='#94a3b8'; }
-      else if(isCycle) { bg='#dbeafe'; col='#1e40af'; }
-      else { bg='#dcfce7'; col='#15803d'; }
+      if(isRunner)       { bg='#f3e8ff'; col='#6b21a8'; }
+      else if(isCycling) { bg='#dbeafe'; col='#1e40af'; }
+      else if(isUnlocked){ bg='#dcfce7'; col='#15803d'; }
+      else               { bg='#f1f5f9'; col='#94a3b8'; }
       h2 += '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:'+bg+';color:'+col+'">'+key+'</span>';
       if(i === numE && i < 8) {
         h2 += '<span style="font-size:10px;color:#94a3b8;align-self:center">|</span>';
@@ -913,12 +915,12 @@ function buildCycleActivityMap(acct, sessions) {
     h += '<div style="position:absolute;left:-18px;top:4px;width:9px;height:9px;border-radius:50%;background:'+dotCol+'"></div>';
     h += '<div style="font-size:10px;color:var(--sub);margin-bottom:2px">'+m.date+' · £'+m.bal.toFixed(2)+'</div>';
     var eventLabel = m.type === 'start'
-      ? 'Started — '+m.unlocked+'/'+numEntries+' entries · '+m.lot.toFixed(2)+' lots'
+      ? 'Started — ' + (m.unlocked > 0 ? m.unlocked+'/'+numEntries+' entries · ' : 'balance building · ') + m.lot.toFixed(2)+' lots'
       : m.type === 'unlock'
         ? m.unlocked+'/'+numEntries+' entries unlocked · '+m.lot.toFixed(2)+' lots'
         : m.type === 'cycle'
           ? 'Cycle '+m.cycle+' — lot size stepped to '+m.lot.toFixed(2)
-          : 'Now — Cycle '+m.cycle+' · '+m.lot.toFixed(2)+' lots · '+m.unlocked+'/'+numEntries+' active';
+          : 'Now — Cycle '+m.cycle+' · '+m.lot.toFixed(2)+' lots · '+(m.cycle>0?numEntries:m.unlocked)+'/'+numEntries+' active';
     h += '<div style="font-size:12px;font-weight:700;color:#1e293b">'+eventLabel+'</div>';
     h += chips(m.unlocked, m.cycle, numEntries);
     h += '</div>';
@@ -932,7 +934,8 @@ function buildCycleActivityMap(acct, sessions) {
   h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">';
   h += '<div class="mini-kpi"><div class="mini-kpi-val cyan">Cycle '+curCl2.cycle+'</div><div class="mini-kpi-lbl">Current level</div></div>';
   h += '<div class="mini-kpi"><div class="mini-kpi-val">'+curCl2.baseLot.toFixed(2)+'</div><div class="mini-kpi-lbl">Base lot size</div></div>';
-  h += '<div class="mini-kpi"><div class="mini-kpi-val green">E1–E'+(curCl2.cycle>0?numEntries:curCl2.unlockedEntries)+'</div><div class="mini-kpi-lbl">Active entries</div></div>';
+  var activeLabel = curCl2.cycle > 0 ? 'E1–E'+numEntries : (curCl2.unlockedEntries > 0 ? 'E1–E'+curCl2.unlockedEntries : 'Unlocking');
+  h += '<div class="mini-kpi"><div class="mini-kpi-val green">'+activeLabel+'</div><div class="mini-kpi-lbl">Active entries</div></div>';
   h += '<div class="mini-kpi"><div class="mini-kpi-val gold">£'+curCl2.nextThreshold.toFixed(2)+'</div><div class="mini-kpi-lbl">Next cycle at</div></div>';
   h += '</div>';
 
