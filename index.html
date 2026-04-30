@@ -375,31 +375,30 @@ async function loadGtmoData() {
     var isGPOnly   = (gtmoAcctId === GP_ACCT_ID);
     var isAll      = (gtmoAcctId === 'all');
 
-    // Session + order filter — exclude GlobalPrime (no gtmo_sessions for it)
+    // All accounts including GlobalPrime now fetch from gtmo_sessions
+    var acctFilter = gtmoAcctId !== 'all'
+      ? '&account_id=eq.' + gtmoAcctId
+      : '&account_id=in.(' + allIds.join(',') + ')';
+
     var nonGPIds   = GTMO_ACCT_DEFS.filter(function(a){return a.id !== GP_ACCT_ID;}).map(function(a){return a.id;});
-    var acctFilter = isGPOnly
-      ? null  // skip gtmo_sessions fetch entirely
-      : (gtmoAcctId !== 'all'
-          ? '&account_id=eq.' + gtmoAcctId
-          : '&account_id=in.(' + nonGPIds.join(',') + ')');
 
     var dateFilter      = '&session_date=gte.' + fromDate + '&session_date=lte.' + toDate;
     var orderFrom       = fromDate < '2025-12-01' ? fromDate : '2025-12-01';
     var orderDateFilter = '&close_time=gte.' + orderFrom + 'T00:00:00&close_time=lte.' + toDate + 'T23:59:59';
 
-    // Always fetch GP trades when showing GlobalPrime or all accounts
+    // GP trades fallback — for historical sessions before bot.py v6.62 (before 30 Apr 2026)
+    // Only fetch if date range includes pre-v6.62 dates
+    var needsGPTradesFallback = (isGPOnly || isAll) && fromDate < '2026-04-30';
     var gpTradesFilter = '&account_id=eq.' + GP_ACCT_ID
       + '&symbol=eq.XAUUSD'
       + '&ts=gte.' + fromDate + 'T00:00:00'
-      + '&ts=lte.' + toDate + 'T23:59:59';
+      + '&ts=lte.2026-04-29T23:59:59';  // Only pre-v6.62 dates
 
-    var fetchSessions = acctFilter
-      ? sb('gtmo_sessions', 'select=*,accounts(label)&order=session_date,session_open' + acctFilter + dateFilter)
-      : Promise.resolve([]);
-    var fetchOrders = acctFilter
-      ? sb('gtmo_orders', 'select=*&order=close_time' + (isAll ? '&account_id=in.(' + nonGPIds.join(',') + ')' : '&account_id=eq.' + gtmoAcctId) + orderDateFilter)
-      : Promise.resolve([]);
-    var fetchGPTrades = (isGPOnly || isAll)
+    var fetchSessions = sb('gtmo_sessions', 'select=*,accounts(label)&order=session_date,session_open' + acctFilter + dateFilter);
+    var fetchOrders   = (isGPOnly)
+      ? Promise.resolve([])
+      : sb('gtmo_orders', 'select=*&order=close_time&account_id=in.(' + nonGPIds.join(',') + ')' + orderDateFilter);
+    var fetchGPTrades = needsGPTradesFallback
       ? sb('trades', 'select=ticket,symbol,direction,lot,pnl,balance,ts,event&order=ts' + gpTradesFilter)
       : Promise.resolve([]);
 
@@ -408,13 +407,21 @@ async function loadGtmoData() {
     gtmoDb.sessions = res[0];
     gtmoDb.orders   = res[1];
 
-    // Build synthetic GP sessions from trades and merge in
-    var gpSessions = buildGPSessions(res[2]);
-    gtmoDb.sessions = gtmoDb.sessions.concat(gpSessions);
+    // Merge historical GP sessions from trades table for dates before 30 Apr 2026
+    // Only add synthetic sessions for dates that don't already have a real gtmo_session
+    if(res[2].length) {
+      var existingGPDates = {};
+      gtmoDb.sessions.filter(function(s){ return s.account_id === GP_ACCT_ID; })
+        .forEach(function(s){ existingGPDates[s.session_date] = true; });
+      var gpSynthetic = buildGPSessions(res[2]).filter(function(s){
+        return !existingGPDates[s.session_date];
+      });
+      gtmoDb.sessions = gtmoDb.sessions.concat(gpSynthetic);
+    }
 
     dot.className = 'status-dot live';
     txt.textContent = 'Live';
-    st.textContent = gtmoDb.sessions.length + ' sessions · ' + gtmoDb.orders.length + ' orders · ' + res[2].length + ' GP trades · ' + fromDate + ' → ' + toDate;
+    st.textContent = gtmoDb.sessions.length + ' sessions · ' + gtmoDb.orders.length + ' orders · ' + fromDate + ' → ' + toDate;
     renderGtmo();
   } catch(e) {
     dot.className = 'status-dot';
