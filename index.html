@@ -881,14 +881,18 @@ function buildCycleActivityMap(acct, sessions) {
     var h2 = '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">';
     for(var i=1;i<=8;i++) {
       var key = 'E'+i;
-      var isUnlocked = cycle > 0 ? (i <= numE) : (i <= unlocked);
-      var isCycling  = cycle > 0 && isUnlocked;
-      var isRunner   = i > numE;
       var bg, col;
-      if(isRunner)       { bg='#f3e8ff'; col='#6b21a8'; }
-      else if(isCycling) { bg='#dbeafe'; col='#1e40af'; }
-      else if(isUnlocked){ bg='#dcfce7'; col='#15803d'; }
-      else               { bg='#f1f5f9'; col='#94a3b8'; }
+      if(i <= unlocked) {
+        // Unlocked entry — green if pre-cycle, blue if cycling
+        if(cycle > 0) { bg='#dbeafe'; col='#1e40af'; }
+        else          { bg='#dcfce7'; col='#15803d'; }
+      } else if(cycle > 0 && i <= numE) {
+        // Full cycle — all numE entries active in blue
+        bg='#dbeafe'; col='#1e40af';
+      } else {
+        // Not yet active — grey
+        bg='#f1f5f9'; col='#94a3b8';
+      }
       h2 += '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:'+bg+';color:'+col+'">'+key+'</span>';
       if(i === numE && i < 8) {
         h2 += '<span style="font-size:10px;color:#94a3b8;align-self:center">|</span>';
