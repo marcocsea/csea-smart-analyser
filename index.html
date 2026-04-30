@@ -387,13 +387,15 @@ async function loadGtmoData() {
     var orderDateFilter = '&close_time=gte.' + orderFrom + 'T00:00:00&close_time=lte.' + toDate + 'T23:59:59';
 
     // GP trades fallback — for historical sessions before bot.py v6.62 (before 30 Apr 2026)
-    // Only fetch if date range includes pre-v6.62 dates
-    var needsGPTradesFallback = (isGPOnly || isAll) && fromDate < '2026-04-30';
+    // GP trades fallback — AurumAI Gold only filtered by magic 84011019
+    // No date cutoff — magic number is the only filter needed
+    var needsGPTradesFallback = (isGPOnly || isAll);
     var gpTradesFilter = '&account_id=eq.' + GP_ACCT_ID
       + '&symbol=eq.XAUUSD'
-      + '&magic=eq.84011019'          // v1.3: AurumAI Gold only — excludes POS EA and manual forex
+      + '&magic=eq.84011019'
+      + '&event=eq.CLOSE'
       + '&ts=gte.' + fromDate + 'T00:00:00'
-      + '&ts=lte.2026-04-29T23:59:59';  // Only pre-v6.62 dates
+      + '&ts=lte.' + toDate + 'T23:59:59';
 
     var fetchSessions = sb('gtmo_sessions', 'select=*,accounts(label)&order=session_date,session_open' + acctFilter + dateFilter);
     var fetchOrders   = (isGPOnly)
@@ -408,8 +410,8 @@ async function loadGtmoData() {
     gtmoDb.sessions = res[0];
     gtmoDb.orders   = res[1];
 
-    // Merge historical GP sessions from trades table for dates before 30 Apr 2026
-    // Only add synthetic sessions for dates that don't already have a real gtmo_session
+    // Merge GP trades sessions — real gtmo_sessions take priority
+    // Synthetic sessions from trades only fill dates not covered by real sessions
     if(res[2].length) {
       var existingGPDates = {};
       gtmoDb.sessions.filter(function(s){ return s.account_id === GP_ACCT_ID; })
