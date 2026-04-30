@@ -443,6 +443,12 @@ async function loadGtmoData() {
       gtmoDb.sessions = gtmoDb.sessions.concat(gpSynthetic);
     }
 
+    // Recalculate GlobalPrime session P&L from magic-filtered trades
+    // Prevents manual trades overlapping AurumAI sessions from polluting P&L
+    if((isGPOnly || isAll) && res[2].length) {
+      gtmoDb.sessions = recalcGPSessionPnl(gtmoDb.sessions, res[2]);
+    }
+
     dot.className = 'status-dot live';
     txt.textContent = 'Live';
     st.textContent = gtmoDb.sessions.length + ' sessions · ' + gtmoDb.orders.length + ' orders · ' + fromDate + ' → ' + toDate;
@@ -615,7 +621,40 @@ function getRunnerStats(orders) {
   return stats;
 }
 
-// ── GTMO OVERVIEW ───────────────────────────────────────────────
+// ── RECALCULATE GLOBALPRIME SESSION P&L FROM MAGIC-FILTERED TRADES ──
+// For GlobalPrime only — replaces bot.py balance-diff P&L with sum of
+// AurumAI orders (magic 84011019) that closed during each session window.
+// Prevents manual trades overlapping an AurumAI session from polluting P&L.
+function recalcGPSessionPnl(sessions, trades) {
+  var closes = trades.filter(function(t){ return t.event === 'CLOSE'; });
+  if(!closes.length) return sessions;
+
+  return sessions.map(function(s) {
+    if(s.account_id !== GP_ACCT_ID) return s;
+
+    // Find all AurumAI closes that fall between session_open and session_close
+    // Add 30 minutes buffer after session_close for runners that close late
+    var openTs  = new Date(s.session_open);
+    var closeTs = new Date(s.session_close);
+    var buffer  = 4 * 60 * 60 * 1000; // 4 hour buffer for runners
+
+    var sessionTrades = closes.filter(function(c) {
+      var ct = new Date(c.ts);
+      return ct >= openTs && ct <= new Date(closeTs.getTime() + buffer);
+    });
+
+    if(!sessionTrades.length) return s; // no trades data — keep original
+
+    var purePnl = sessionTrades.reduce(function(a,c){ return a + parseFloat(c.pnl||0); }, 0);
+    var result  = purePnl > 0.01 ? 'WIN' : purePnl < -0.01 ? 'LOSS' : 'BREAKEVEN';
+
+    return Object.assign({}, s, {
+      net_pnl: purePnl,
+      result:  result,
+      _pnl_source: 'trades' // internal flag — P&L from magic-filtered trades
+    });
+  });
+}
 function renderGtmoOverview() {
   var allSessions = gtmoDb.sessions;
   var globalKpis  = getGtmoKpis(allSessions);
